@@ -1,1 +1,234 @@
+# APPNICENAME=Stash
+# APPDESCRIPTION=An organizer for your porn, written in Go
 
+services:
+  stashPro:
+    image: stashapp/stash:latest
+    container_name: stashapp-pro
+    restart: unless-stopped
+    ## the container's port must be the same with the STASH_PORT in the environment section
+    ports:
+      - "9001:9001"
+    ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
+    # network_mode: host
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "10"
+        max-size: "2m"
+    environment:
+      - STASH_STASH=/data/
+      - STASH_GENERATED=/generated/
+      - STASH_METADATA=/metadata/
+      - STASH_CACHE=/cache/
+      ## Adjust below to change default port (9999)
+      - STASH_PORT=9001
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+    volumes:
+      - /etc/localtimePro:/etc/localtime:ro
+      ## Adjust below paths (the left part) to your liking.
+      ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
+      
+      ## Keep configs, scrapers, and plugins here.
+      - $SQLITE_DIR/stashpro:/root/.stash
+      ## Point this at your collection.
+      - $DATA_DIR/otherstuff:/data
+      - $DATA_DIR/VR:/VR
+      ## This is where your stash's metadata lives
+      - $CONFIGS_DIR/stashpro/metadata:/metadata
+      ## Any other cache content.
+      - $CONFIGS_DIR/stashpro/cache:/cache
+      ## Where to store binary blob data (scene covers, images)
+      - $CONFIGS_DIR/stashpro/blobs:/blobs
+      ## Where to store generated content (screenshots,previews,transcodes,sprites)
+      - $CONFIGS_DIR/stashpro/generated:/generated
+      - /docker/configs/stashpro/scripts:/scripts
+      - $CONFIGS_DIR/stashpro/backups:/backups
+
+# APPNICENAME=StashPersonal
+# APPDESCRIPTION=An organizer for your porn, written in Go\
+  stashPersonal:
+    image: stashapp/stash:latest
+    container_name: stashApp-Personal
+    restart: unless-stopped
+    ## the container's port must be the same with the STASH_PORT in the environment section
+    ports:
+      - "9002:9002"
+    ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
+    # network_mode: host
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "10"
+        max-size: "2m"
+    environment:
+      - STASH_STASH=/data/
+      - STASH_GENERATED=/generated/
+      - STASH_METADATA=/metadata/
+      - STASH_CACHE=/cache/
+      ## Adjust below to change default port (9999)
+      - STASH_PORT=9002
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+    volumes:
+      - /etc/localtimePersonal:/etc/localtime:ro
+      ## Adjust below paths (the left part) to your liking.
+      ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
+      
+      ## Keep configs, scrapers, and plugins here.
+      - $SQLITE_DIR/stashpersonal:/root/.stash
+      ## Point this at your collection.
+      - $DATA_DIR:/data
+      ## This is where your stash's metadata lives
+      - $CONFIGS_DIR/stashpersonal/metadata:/metadata
+      ## Any other cache content.
+      - $CONFIGS_DIR/stashpersonal/cache:/cache
+      ## Where to store binary blob data (scene covers, images)
+      - $CONFIGS_DIR/stashpersonal/blobs:/blobs
+      ## Where to store generated content (screenshots,previews,transcodes,sprites)
+      - $CONFIGS_DIR/stashpersonal/generated:/generated
+
+      - $CONFIGS_DIR/stashpersonal/backups:/backups
+
+      - /docker/configs/stashpersonal/scripts:/scripts
+
+
+# APPNICENAME=StashAppProVR
+# APPDESCRIPTION=VR Viewer for your VR porn to work with StashApp
+  stash-vr:
+    image: ofl0w/stash-vr:latest
+    container_name: stash-vr
+    restart: unless-stopped
+    ports:
+      - "9666:9666"
+    environment:
+      STASH_GRAPHQL_URL: "http://192.168.69.220:9001/graphql"
+      STASH_API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJrZGFzc293Iiwic3ViIjoiQVBJS2V5IiwiaWF0IjoxNzQyODQwNzQ4fQ.dCFQQB5ya8_CcZdFLx8reajhiyzZ3sZgBZiTGsUm3Vc"
+      #FAVORITE_TAG: "FAVORITE"
+
+      ## FILTERS can be either 'frontpage' or a comma separated list of filter ids.
+      ## If left empty all saved filters will be shown.
+      #FILTERS: "2,3,7"     # comma separated list of filter ids to show
+      #FILTERS: "frontpage" # show only scene filters from front page
+
+      #ALLOW_SYNC_MARKERS: "true"
+      #DISABLE_HEATMAP: "true"
+      #HEATMAP_HEIGHT_PX: 45
+      #DISABLE_PLAY_COUNT: "true"
+      #EVENT_SERVER_URL: "http://192.168.0.127:8099":"
+
+      #LOG_LEVEL: "debug"
+
+      #FORCE_HTTPS: "true"
+
+  stashreel:
+      image: stashapp/stash:latest
+      container_name: stashAppReel
+      restart: unless-stopped
+      ## the container's port must be the same with the STASH_PORT in the environment section
+      ports:
+        - "9003:9003"
+      ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
+      # network_mode: host
+      logging:
+        driver: "json-file"
+        options:
+          max-file: "10"
+          max-size: "2m"
+      environment:
+        - STASH_STASH=/data/
+        - STASH_GENERATED=/generated/
+        - STASH_METADATA=/metadata/
+        - STASH_CACHE=/cache/
+        ## Adjust below to change default port (9999)
+        - STASH_PORT=9003
+        - PUID=$PUID
+        - PGID=$PGID
+        - TZ=$TZ
+      volumes:
+        - /etc/localtimestage:/etc/localtime:ro
+        ## Adjust below paths (the left part) to your liking.
+        ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
+        
+        ## Keep configs, scrapers, and plugins here.
+        - $SQLITE_DIR/stashreel:/root/.stash
+        ## Point this at your collection.
+        - $DATA_DIR/reels:/data
+        ## This is where your stash's metadata lives
+        - $CONFIGS_DIR/stashreel/metadata:/metadata
+        ## Any other cache content.
+        - $CONFIGS_DIR/stashreel/cache:/cache
+        ## Where to store binary blob data (scene covers, images)
+        - $CONFIGS_DIR/stashreel/blobs:/blobs
+        ## Where to store generated content (screenshots,previews,transcodes,sprites)
+        - $CONFIGS_DIR/stashreel/generated:/generated
+        - $CONFIGS_DIR/stashreel/backups:/backups
+
+
+  syncthingstash:
+      image: syncthing/syncthing
+      container_name: syncthingstash
+      hostname: my-syncthing
+      environment:
+          - PUID=$PUID
+          - PGID=$PGID
+          - TZ=$TZ
+      volumes:
+        - /$DATA_DIR/syncthing:/data
+      ports:
+        - 9384:8384 # Web UI
+        - 22000:22000/tcp # TCP file transfers
+        - 22000:22000/udp # QUIC file transfers
+        - 21027:21027/udp # Local discovery
+      restart: unless-stopped
+
+
+
+# x-db-env: &db-env
+#   POSTGRES_DB: stasharr
+#   POSTGRES_USER: stasharr
+#   # Change this once before your first start.
+#   POSTGRES_PASSWORD: 123abc
+
+  # postgres:
+  #   image: postgres:17-alpine
+  #   environment:
+  #     <<: *db-env
+  #   volumes:
+  #     - /stasharr_postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+  #     start_period: 10s
+  #   restart: unless-stopped
+
+  # StashPortal:
+  #   # Change latest to an exact release like v0.1.0 if you want to pin upgrades.
+  #   image: ghcr.io/enymawse/stasharr-portal:latest
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   volumes:
+  #     - $CONFIGS_DIR/StashPortal/app_data:/var/lib/stasharr
+  #   environment:
+  #     <<: *db-env
+  #     DATABASE_HOST: postgres
+  #     DATABASE_URL: ""
+  #     HOST: 0.0.0.0
+  #     PORT: 3000
+  #     DATABASE_MIGRATION_MAX_ATTEMPTS: 30
+  #     DATABASE_MIGRATION_RETRY_DELAY_SECONDS: 2
+  #     # Optional advanced override. Leave unset to let Stasharr generate and persist
+  #     # a unique session secret for this install in the app data volume.
+  #     # SESSION_SECRET: your-own-long-random-secret
+  #     # Optional: set to true when serving Stasharr over HTTPS.
+  #     SESSION_COOKIE_SECURE: "false"
+  #   ports:
+  #     # Change the left side if port 3000 is already in use on the host.
+  #     - "9010:3000"
+  #   restart: unless-stopped
