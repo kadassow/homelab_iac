@@ -17,14 +17,22 @@
           - gnupg
         state: present
 
-    - name: Download official Docker GPG signing key
-      apt_key:
-        url: https://docker.com
-        state: present
+    # MODERN DEBIAN 13 KEY MANAGEMENT (Replaces legacy apt_key)
+    - name: Create secure keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
 
-    - name: Add official Docker repository to sources list
+    - name: Download official Docker GPG signing key securely
+      get_url:
+        url: https://docker.com
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add official Docker repository to sources list using the keyring
       apt_repository:
-        repo: "deb [arch=amd64] https://docker.com {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://docker.com {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
 
