@@ -1,6 +1,8 @@
 # APPNICENAME=Stash
 # APPDESCRIPTION=An organizer for your porn, written in Go
 
+
+
 services:
   stashPro:
     image: stashapp/stash:latest
@@ -105,7 +107,7 @@ services:
     ports:
       - "9666:9666"
     environment:
-      STASH_GRAPHQL_URL: "http://192.168.69.220:9001/graphql"
+      STASH_GRAPHQL_URL: "http://porn.sparkylab.win/graphql"
       STASH_API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJrZGFzc293Iiwic3ViIjoiQVBJS2V5IiwiaWF0IjoxNzQyODQwNzQ4fQ.dCFQQB5ya8_CcZdFLx8reajhiyzZ3sZgBZiTGsUm3Vc"
       #FAVORITE_TAG: "FAVORITE"
 
@@ -184,7 +186,6 @@ services:
         - 22000:22000/udp # QUIC file transfers
         - 21027:21027/udp # Local discovery
       restart: unless-stopped
-
 
 
 # x-db-env: &db-env
