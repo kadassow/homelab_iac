@@ -33,7 +33,7 @@
     - name: Add official Docker repository to sources list using the keyring
       apt_repository:
        # NOTICE: We replaced "{{ ansible_distribution_release }}" with "bookworm" below
-        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://docker.com/linux/bookworm focal stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://docker.com/linux/bookworm stable"
         state: present
         filename: docker
         
