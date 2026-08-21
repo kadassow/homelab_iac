@@ -108,7 +108,7 @@ services:
       - "9666:9666"
     environment:
       STASH_GRAPHQL_URL: "http://porn.sparkylab.win/graphql"
-      STASH_API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJrZGFzc293Iiwic3ViIjoiQVBJS2V5IiwiaWF0IjoxNzQyODQwNzQ4fQ.dCFQQB5ya8_CcZdFLx8reajhiyzZ3sZgBZiTGsUm3Vc"
+      STASH_API_KEY: $PROSTASHAPIKEY
       #FAVORITE_TAG: "FAVORITE"
 
       ## FILTERS can be either 'frontpage' or a comma separated list of filter ids.
