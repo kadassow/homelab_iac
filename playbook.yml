@@ -3,6 +3,18 @@
   hosts: all
   gather_facts: true
   tasks:
+    - name: Disable IPv6 persistently via sysctl
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: '1'
+        sysctl_file: /etc/sysctl.d/99-disable-ipv6.conf
+        state: present
+        reload: yes
+      loop:
+        - net.ipv6.conf.all.disable_ipv6
+        - net.ipv6.conf.default.disable_ipv6
+        - net.ipv6.conf.lo.disable_ipv6
+
     - name: Remove any stale/malformed Docker apt source (safe if absent)
       file:
         path: /etc/apt/sources.list.d/docker.list
@@ -29,11 +41,34 @@
         state: directory
         mode: '0755'
 
-    - name: Download official Docker GPG signing key securely
-      get_url:
-        url: https://download.docker.com/linux/debian/gpg
-        dest: /etc/apt/keyrings/docker.asc
+    - name: Remove any stale/corrupt Docker keyring (safe if absent)
+      file:
+        path: /etc/apt/keyrings/docker.asc
+        state: absent
+
+    - name: Download and dearmor official Docker GPG signing key
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.asc
+        creates: /etc/apt/keyrings/docker.asc
+      args:
+        executable: /bin/bash
+
+    - name: Ensure keyring file has correct permissions
+      file:
+        path: /etc/apt/keyrings/docker.asc
         mode: '0644'
+
+    - name: Verify keyring file is non-empty
+      stat:
+        path: /etc/apt/keyrings/docker.asc
+      register: docker_keyring
+
+    - name: Fail early if keyring download produced an empty file
+      assert:
+        that:
+          - docker_keyring.stat.exists
+          - docker_keyring.stat.size > 0
+        fail_msg: "Docker GPG keyring is missing or empty — check internet egress from this host (DMZ firewall rules?) before re-running."
 
     - name: Add official Docker repository to sources list using the keyring
       apt_repository:
