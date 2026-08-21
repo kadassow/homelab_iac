@@ -26,17 +26,19 @@
 
     - name: Download official Docker GPG signing key securely
       get_url:
-        url: https://docker.com
+        url: https://download.docker.com/linux/debian/gpg
         dest: /etc/apt/keyrings/docker.asc
         mode: '0644'
 
     - name: Add official Docker repository to sources list using the keyring
       apt_repository:
-       # NOTICE: We replaced "{{ ansible_distribution_release }}" with "bookworm" below
-        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://docker.com/linux/bookworm stable"
+        # Uses the live distribution codename (e.g. trixie, bookworm) so this
+        # stays correct across Debian versions/upgrades — no hardcoding needed,
+        # since Docker's official repo now supports Debian 13 (Trixie) too.
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
-        
+
     - name: Install Docker Engine and Docker Compose Plugin
       apt:
         name:
