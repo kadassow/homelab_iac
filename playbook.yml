@@ -3,6 +3,11 @@
   hosts: all
   gather_facts: true
   tasks:
+    - name: Remove any stale/malformed Docker apt source (safe if absent)
+      file:
+        path: /etc/apt/sources.list.d/docker.list
+        state: absent
+
     - name: Update apt cache and upgrade system packages
       apt:
         update_cache: yes
