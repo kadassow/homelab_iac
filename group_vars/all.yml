@@ -6,8 +6,8 @@ TZ: "America/Chicago"
 # Base paths used across compose files adjust to your actual mounts
 DATA_DIR: /mnt/data
 CONFIGS_DIR: /mnt/configs
-SQLITE_DIR: /mnt/sqlite
-DOCKERCONFIGS_DIR: /mnt/dockerconfigs
+LOCALDOCKER_DIR: /localdocker/configs
+DOCKERCONFIGS_DIR: /docker/configs
 
 # Secrets pulled from group_vars/vault.yml (ansible-vault encrypted)
 # These names just point at the vault_ prefixed variables so your compose
@@ -21,3 +21,25 @@ JDOWNLOADEMAIL: "{{ vault_jdownload_email }}"
 JDOWNLOADPASS: "{{ vault_jdownload_pass }}"
 
 STASH_API_KEY: "{{ vault_stash_api_key }}"
+
+CIFS_USERNAME: "{{ vault_cifs_username }}"
+CIFS_PASSWORD: "{{ vault_cifs_password }}"
+
+# ─── CIFS mount definitions (cores group only) ─────────────────────────────
+# Edit cifs_server and the share names to match your actual OMV/NAS shares.
+# Each mount is provisioned via ansible.posix.mount (writes to /etc/fstab)
+# and docker.service is made to wait on all of these via a systemd drop-in.
+cifs_server: "{{ vault_cifs_server }}"   # <-- set to your NAS/OMV IP
+cifs_mounts:
+  - path: "{{ DATA_DIR }}"
+    src: "//{{ cifs_server }}/data"
+    opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
+  - path: "{{ CONFIGS_DIR }}"
+    src: "//{{ cifs_server }}/configs"
+    opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
+  - path: "{{ SQLITE_DIR }}"
+    src: "//{{ cifs_server }}/sqlite"
+    opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
+  - path: "{{ DOCKERCONFIGS_DIR }}"
+    src: "//{{ cifs_server }}/dockerconfigs"
+    opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
