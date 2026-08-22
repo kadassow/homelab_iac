@@ -1,4 +1,3 @@
-
 services:
   gluetun_open:
     image: qmcgaw/gluetun
@@ -57,7 +56,7 @@ services:
         - WEBUI_PORT=8180
         - TORRENTING_PORT=6881
       volumes:
-        - $CONFIGS_DIR/qbittorrent/config:/config
+        - $LOCALDOCKER_DIR/qbittorrent/config:/config
         #- $DATA_DIR/downloads/torrents:/downloads
         - $DATA_DIR/downloads/torrents:/$DATA_DIR/downloads/torrents
       restart: unless-stopped # no | always | on-failure | unless-stopped
@@ -75,7 +74,7 @@ services:
   #     - NZBGET_USER=nzbget #optional
   #     - NZBGET_PASS=123abc #optional
   #   volumes:
-  #     - $CONFIGS_DIR/nzbget/config:/config
+  #     - $LOCALDOCKER_DIR/nzbget/config:/config
   #     - $DATA_DIR/downloads/usenet:$DATA_DIR/downloads/usenet #optional
   #   restart: unless-stopped
 
@@ -91,7 +90,7 @@ services:
   #     - PGID=$PGID
   #     - TZ=$TZ
   #   volumes:
-  #     - $CONFIGS_DIR/sabnzb/config:/config
+  #     - $LOCALDOCKER_DIR/sabnzb/config:/config
   #     - $DATA_DIR/downloads/usenet/:/$DATA_DIR/downloads/usenet #optional
   #     - $DATA_DIR/downloads/usenet/intermediate:/incomplete-downloads #optional
   #   restart: unless-stopped
@@ -110,7 +109,7 @@ services:
       - PGID=$PGID
       - TZ=$TZ
     volumes:
-      - $CONFIGS_DIR/radarr/config:/config
+      - $LOCALDOCKER_DIR/radarr/config:/config
       - $DATA_DIR:/data    
       - $DOCKERCONFIGS_DIR/radarr/custom-services.d:/custom-services.d  
       - $DOCKERCONFIGS_DIR/radarr/custom-cont-init.d:/custom-cont-init.d
@@ -131,7 +130,7 @@ services:
       - PGID=$PGID
       - TZ=$TZ
     volumes:
-      - $CONFIGS_DIR/sonarr/config:/config
+      - $LOCALDOCKER_DIR/sonarr/config:/config
       - $DATA_DIR:/data  
     restart: unless-stopped
     networks:
@@ -150,7 +149,7 @@ services:
       - PGID=$PGID
       - TZ=$TZ
     volumes:
-      - $CONFIGS_DIR/bazarr/config:/config
+      - $LOCALDOCKER_DIR/bazarr/config:/config
       - $DATA_DIR/media/movies:/movies #optional
       - $DATA_DIR/media/tv:/tv #optional
     restart: unless-stopped
@@ -170,7 +169,7 @@ services:
         - WEBUI_PORT=16969
         - TORRENTING_PORT=6882
       volumes:
-        - $CONFIGS_DIR/qbittorrent_whisparr/config:/config
+        - $LOCALDOCKER_DIR/qbittorrent_whisparr/config:/config
         #- $DATA_DIR/downloads/torrents:/downloads
         - $DATA_DIR/privatestuff/downloads/torrents:/$DATA_DIR/privatestuff/downloads/torrents
       restart: unless-stopped # no | always | on-failure | unless-stopped
@@ -190,7 +189,7 @@ services:
       - TZ=$TZ
       - UMASK=002
     volumes:
-      - $CONFIGS_DIR/whisparr/config:/config
+      - $LOCALDOCKER_DIR/whisparr/config:/config
       - $DATA_DIR/privatestuff:/$DATA_DIR/privatestuff
     restart: unless-stopped
     networks:
@@ -210,7 +209,7 @@ services:
       - TZ=$TZ
       - UMASK=002
     volumes:
-      - $CONFIGS_DIR/whisparr3/config:/config
+      - $LOCALDOCKER_DIR/whisparr3/config:/config
       - $DATA_DIR/privatestuff:/$DATA_DIR/privatestuff
     restart: unless-stopped
     networks:
@@ -230,7 +229,7 @@ services:
       - TZ=$TZ
       - UMASK=002
     volumes:
-      - $CONFIGS_DIR/prowlarr/config:/config
+      - $LOCALDOCKER_DIR/prowlarr/config:/config
     restart: unless-stopped
     networks:
       - arr-network
@@ -264,7 +263,7 @@ services:
     ports:
       - 5055:5055
     volumes:
-      - $CONFIGS_DIR/jellyseerr/config:/app/config
+      - $LOCALDOCKER_DIR/jellyseerr/config:/app/config
     #healthcheck:
       #test: wget --no-verbose --tries=1 --spider http://192.168.68.86:5055/api/v1/status || exit 1
       #start_period: 20s
@@ -333,7 +332,7 @@ services:
       - MYJDOWNLOADER_DEVICE_NAME=arrserver
       - JDOWNLOADER_HEADLESS=1
     volumes:
-      - $CONFIGS_DIR/jdownloader:/config
+      - $LOCALDOCKER_DIR/jdownloader:/config
       - $DATA_DIR/downloads/jdownloader:/output
     restart: unless-stopped
 
@@ -345,7 +344,7 @@ services:
       - PGID=$PGID
       - TZ=$TZ
     volumes:
-      - $CONFIGS_DIR/trailarr:/config # For Trailarr's database and logs
+      - $LOCALDOCKER_DIR/trailarr:/config # For Trailarr's database and logs
       # Map your Radarr media folder(s)
       - $DATA_DIR/media/movies:/media/movies # Example: if Radarr uses /media/movies internally
       # Map your Sonarr media folder(s)
