@@ -117,9 +117,8 @@
         group: "{{ PGID }}"
         mode: '0755'
       loop:
-        - "{{ LOCALDOCKER_DIR }}"
-        - "{{ CONFIGS_DIR }}"
-        - "{{ SQLITE_DIR }}"
+        - "{{ DATA_DIR }}"
+        - "{{ DOCKERCONFIGS_DIR }}"
 
     - name: Ensure mount point directories exist
       ansible.builtin.file:
