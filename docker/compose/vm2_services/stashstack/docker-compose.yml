@@ -107,7 +107,7 @@ services:
     ports:
       - "9666:9666"
     environment:
-      STASH_GRAPHQL_URL: "http://192.168.69.169:9001/graphql"
+      STASH_GRAPHQL_URL: "http://$STASHIP:9001/graphql"
       STASH_API_KEY: $PROSTASHAPIKEY
       #FAVORITE_TAG: "FAVORITE"
 
