@@ -24,7 +24,9 @@ VPNREGION: "{{ vault_vpn_region }}"
 JDOWNLOADEMAIL: "{{ vault_jdownload_email }}"
 JDOWNLOADPASS: "{{ vault_jdownload_pass }}"
 
-STASH_API_KEY: "{{ vault_stash_api_key }}"
+PROSTASHAPIKEY: "{{ vault_stash_api_key }}"
+PERSONALSTASHAPIKEY: "{{ vault_stash_api_key_personal }}"
+STASHIP: "{{ vault_stash_ip }}"
 
 CIFS_USERNAME: "{{ vault_cifs_username }}"
 CIFS_PASSWORD: "{{ vault_cifs_password }}"
