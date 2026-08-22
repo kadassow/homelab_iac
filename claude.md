@@ -125,18 +125,23 @@ fresh key in Stash after deployment — do not reuse the old one.
 
 1. **Fix the hardcoded Stash API key** in the compose file (see above) and
    rotate the key.
-2. **Get the compose files onto each VM** — decide between `ansible.builtin.
+   ** This is Fixed **
+3. **Get the compose files onto each VM** — decide between `ansible.builtin.
    template`/`copy` per stack vs. a `git clone`/`synchronize` of the whole
    repo onto each host.
-3. **Render `.env` files per stack** so `docker compose` can actually resolve
+4. **Render `.env` files per stack** so `docker compose` can actually resolve
    `$PUID`, `$DATA_DIR`, `$VPNPASSWORD`, etc. — compose does not know about
    Ansible's variable space on its own; it just reads a `.env` file sitting
    next to each `docker-compose.yml`. This still needs to be built.
-4. **Confirm DMZ ↔ Services VM firewall rules** — what ports NPM/AdGuard/
+5. **Confirm DMZ ↔ Services VM firewall rules** — what ports NPM/AdGuard/
    WireGuard expose publicly, and what's allowed DMZ → services VM
    internally. Not yet addressed; likely a manual firewall/router
    configuration step rather than something this playbook handles.
-5. **Deploy**: once 2–4 are done, add a task using
+6. **Deploy**: once 2–4 are done, add a task using
    `community.docker.docker_compose_v2` (or `command: docker compose up -d`
+
+## Questions and future tasks
+1 - Can we point my arrStack and StashStack to an authentik server which then authorizes first and then proxies to the right service?
+2 - I want to support direct access still for my home wifi users without authentik auth for certain apps.  Is this possible?
    as a fallback) per stack, targeting the correct host group
    (`gateways` → vm_dmz composes, `cores` → vm2_services composes).
