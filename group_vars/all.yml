@@ -3,10 +3,14 @@ PUID: 1000
 PGID: 1000
 TZ: "America/Chicago"
 
+# Local (non-network) disk path for anything that needs real file locking —
+# sqlite databases, app logs, etc. Keeping these off CIFS avoids the classic
+# "database is locked" / corruption issues SMB has with SQLite's locking model.
+# Visible on the host for easy backups (rsync/borg/etc. from here).
+LOCALDOCKER_DIR: /localdocker/configs
+
 # Base paths used across compose files adjust to your actual mounts
 DATA_DIR: /mnt/data
-CONFIGS_DIR: /mnt/configs
-LOCALDOCKER_DIR: /localdocker/configs
 DOCKERCONFIGS_DIR: /docker/configs
 
 # Secrets pulled from group_vars/vault.yml (ansible-vault encrypted)
@@ -34,12 +38,6 @@ cifs_mounts:
   - path: "{{ DATA_DIR }}"
     src: "//{{ cifs_server }}/data"
     opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
-  - path: "{{ CONFIGS_DIR }}"
-    src: "//{{ cifs_server }}/configs"
-    opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
-  - path: "{{ SQLITE_DIR }}"
-    src: "//{{ cifs_server }}/sqlite"
-    opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
   - path: "{{ DOCKERCONFIGS_DIR }}"
-    src: "//{{ cifs_server }}/dockerconfigs"
+    src: "//{{ cifs_server }}/docker/configs"
     opts: "credentials=/etc/cifs-credentials,uid={{ PUID }},gid={{ PGID }},iocharset=utf8,vers=3.0,_netdev,x-systemd.automount,x-systemd.mount-timeout=30"
