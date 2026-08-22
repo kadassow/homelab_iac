@@ -97,3 +97,73 @@
       apt:
         name: cifs-utils
         state: present
+
+    - name: Create CIFS credentials file (root-only)
+      ansible.builtin.copy:
+        dest: /etc/cifs-credentials
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          username={{ CIFS_USERNAME }}
+          password={{ CIFS_PASSWORD }}
+      no_log: true
+
+    - name: Create local (non-CIFS) docker data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ PUID }}"
+        group: "{{ PGID }}"
+        mode: '0755'
+      loop:
+        - "{{ LOCALDOCKER_DIR }}"
+        - "{{ CONFIGS_DIR }}"
+        - "{{ SQLITE_DIR }}"
+
+    - name: Ensure mount point directories exist
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ cifs_mounts }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Mount CIFS shares (persisted to /etc/fstab)
+      ansible.posix.mount:
+        path: "{{ item.path }}"
+        src: "{{ item.src }}"
+        fstype: cifs
+        opts: "{{ item.opts }}"
+        state: mounted
+      loop: "{{ cifs_mounts }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Ensure docker.service.d override directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/docker.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Force Docker to wait until CIFS mounts are ready before starting
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/docker.service.d/wait-for-mounts.conf
+        mode: '0644'
+        content: |
+          [Unit]
+          RequiresMountsFor={{ cifs_mounts | map(attribute='path') | join(' ') }}
+      notify:
+        - Reload systemd daemon
+        - Restart docker
+
+  handlers:
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
