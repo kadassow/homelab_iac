@@ -34,20 +34,20 @@ services:
       ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
       
       ## Keep configs, scrapers, and plugins here.
-      - $SQLITE_DIR/stashpro:/root/.stash
+      - $LOCALDOCKER_DIR/stashpro:/root/.stash
       ## Point this at your collection.
       - $DATA_DIR/otherstuff:/data
       - $DATA_DIR/VR:/VR
       ## This is where your stash's metadata lives
-      - $CONFIGS_DIR/stashpro/metadata:/metadata
+      - $DOCKERCONFIGS_DIR/stashpro/metadata:/metadata
       ## Any other cache content.
-      - $CONFIGS_DIR/stashpro/cache:/cache
+      - $DOCKERCONFIGS_DIR/stashpro/cache:/cache
       ## Where to store binary blob data (scene covers, images)
-      - $CONFIGS_DIR/stashpro/blobs:/blobs
+      - $DOCKERCONFIGS_DIR/stashpro/blobs:/blobs
       ## Where to store generated content (screenshots,previews,transcodes,sprites)
-      - $CONFIGS_DIR/stashpro/generated:/generated
+      - $DOCKERCONFIGS_DIR/stashpro/generated:/generated
       - /docker/configs/stashpro/scripts:/scripts
-      - $CONFIGS_DIR/stashpro/backups:/backups
+      - $DOCKERCONFIGS_DIR/stashpro/backups:/backups
 
 # APPNICENAME=StashPersonal
 # APPDESCRIPTION=An organizer for your porn, written in Go\
@@ -81,19 +81,19 @@ services:
       ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
       
       ## Keep configs, scrapers, and plugins here.
-      - $SQLITE_DIR/stashpersonal:/root/.stash
+      - $LOCALDOCKER_DIR/stashpersonal:/root/.stash
       ## Point this at your collection.
       - $DATA_DIR:/data
       ## This is where your stash's metadata lives
-      - $CONFIGS_DIR/stashpersonal/metadata:/metadata
+      - $DOCKERCONFIGS_DIR/stashpersonal/metadata:/metadata
       ## Any other cache content.
-      - $CONFIGS_DIR/stashpersonal/cache:/cache
+      - $DOCKERCONFIGS_DIR/stashpersonal/cache:/cache
       ## Where to store binary blob data (scene covers, images)
-      - $CONFIGS_DIR/stashpersonal/blobs:/blobs
+      - $DOCKERCONFIGS_DIR/stashpersonal/blobs:/blobs
       ## Where to store generated content (screenshots,previews,transcodes,sprites)
-      - $CONFIGS_DIR/stashpersonal/generated:/generated
+      - $DOCKERCONFIGS_DIR/stashpersonal/generated:/generated
 
-      - $CONFIGS_DIR/stashpersonal/backups:/backups
+      - $DOCKERCONFIGS_DIR/stashpersonal/backups:/backups
 
       - /docker/configs/stashpersonal/scripts:/scripts
 
@@ -107,7 +107,7 @@ services:
     ports:
       - "9666:9666"
     environment:
-      STASH_GRAPHQL_URL: "http://porn.sparkylab.win/graphql"
+      STASH_GRAPHQL_URL: "http://192.168.69.169:9001/graphql"
       STASH_API_KEY: $PROSTASHAPIKEY
       #FAVORITE_TAG: "FAVORITE"
 
@@ -156,18 +156,18 @@ services:
         ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
         
         ## Keep configs, scrapers, and plugins here.
-        - $SQLITE_DIR/stashreel:/root/.stash
+        - $LOCALDOCKER_DIR/stashreel:/root/.stash
         ## Point this at your collection.
         - $DATA_DIR/reels:/data
         ## This is where your stash's metadata lives
-        - $CONFIGS_DIR/stashreel/metadata:/metadata
+        - $DOCKERCONFIGS_DIR/stashreel/metadata:/metadata
         ## Any other cache content.
-        - $CONFIGS_DIR/stashreel/cache:/cache
+        - $DOCKERCONFIGS_DIR/stashreel/cache:/cache
         ## Where to store binary blob data (scene covers, images)
-        - $CONFIGS_DIR/stashreel/blobs:/blobs
+        - $DOCKERCONFIGS_DIR/stashreel/blobs:/blobs
         ## Where to store generated content (screenshots,previews,transcodes,sprites)
-        - $CONFIGS_DIR/stashreel/generated:/generated
-        - $CONFIGS_DIR/stashreel/backups:/backups
+        - $DOCKERCONFIGS_DIR/stashreel/generated:/generated
+        - $DOCKERCONFIGS_DIR/stashreel/backups:/backups
 
 
   syncthingstash:
@@ -215,7 +215,7 @@ services:
   #     postgres:
   #       condition: service_healthy
   #   volumes:
-  #     - $CONFIGS_DIR/StashPortal/app_data:/var/lib/stasharr
+  #     - $DOCKERCONFIGS_DIR/StashPortal/app_data:/var/lib/stasharr
   #   environment:
   #     <<: *db-env
   #     DATABASE_HOST: postgres
