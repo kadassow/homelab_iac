@@ -1,1 +1,23 @@
+# Non-secret settings safe to commit as plain YAML 
+PUID: 1000
+PGID: 1000
+TZ: "America/Chicago"
 
+# Base paths used across compose files adjust to your actual mounts
+DATA_DIR: /mnt/data
+CONFIGS_DIR: /mnt/configs
+SQLITE_DIR: /mnt/sqlite
+DOCKERCONFIGS_DIR: /mnt/dockerconfigs
+
+# Secrets pulled from group_vars/vault.yml (ansible-vault encrypted)
+# These names just point at the vault_ prefixed variables so your compose
+# templates can keep referencing the plain names (e.g. $VPNPASSWORD).
+VPNPROVIDER: "{{ vault_vpn_provider }}"
+VPNUSERID: "{{ vault_vpn_userid }}"
+VPNPASSWORD: "{{ vault_vpn_password }}"
+VPNREGION: "{{ vault_vpn_region }}"
+
+JDOWNLOADEMAIL: "{{ vault_jdownload_email }}"
+JDOWNLOADPASS: "{{ vault_jdownload_pass }}"
+
+STASH_API_KEY: "{{ vault_stash_api_key }}"
