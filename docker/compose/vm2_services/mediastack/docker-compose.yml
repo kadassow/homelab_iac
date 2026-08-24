@@ -1,1 +1,64 @@
 
+# APPNICENAME=Jellyfin
+# APPDESCRIPTION=Media server for movies, TV, and music
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - "8096:8096"   # Web UI (HTTP)
+      # - "8920:8920" # Web UI (HTTPS) - only if you configure a cert inside Jellyfin
+      - "7359:7359/udp" # Network discovery (Jellyfin clients auto-find server)
+      - "1900:1900/udp" # DLNA discovery
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+      - JELLYFIN_PublishedServerUrl=http://192.168.69.240:8096 #optional, set to your actual LAN URL
+    volumes:
+      ## SQLite-backed library DB + user data - kept local, not CIFS (see stashstack/arrstack for why)
+      - $LOCALDOCKER_DIR/jellyfin/config:/config
+      - $LOCALDOCKER_DIR/jellyfin/cache:/cache
+      ## Point these at your actual media folders. Split out however you like;
+      ## Jellyfin just needs read access to the files.
+      - $DATA_DIR/media/movies:/media/movies
+      - $DATA_DIR/media/tv:/media/tv
+      - $DATA_DIR/media/music:/media/music
+    # ntel QuickSync hardware transcoding (requires host has /dev/dri)
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "108" # render group GID from the playbook output above — confirm with `getent group render`
+    networks:
+      - media-network
+
+# APPNICENAME=CalibreWebAutomated
+# APPDESCRIPTION=Ebook library manager with automatic ingest/conversion
+  calibre-web-automated:
+    image: crocodilestick/calibre-web-automated:latest
+    container_name: calibre-web-automated
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+      - DOCKER_MODS=linuxserver/calibre-web:calibre #optional, adds full Calibre desktop tools for conversion
+      - NETWORK_SHARE_MODE=false #keep false - metadata.db writes don't play nice with SMB
+    volumes:
+      ## metadata.db lives here - same SQLite-locking concern as Stash/arr apps, so local disk only.
+      - $LOCALDOCKER_DIR/calibre-web-automated/config:/config
+      ## Your actual book library (what CWA serves/organizes)
+      - $DATA_DIR/media/books:/data
+      
+      ## Drop new books here and CWA auto-imports/converts them into the library above
+      - $DATA_DIR/downloads/ebookingest:/ebookingest
+    networks:
+      - media-network
+
+networks:
+  media-network:
+    driver: bridge
