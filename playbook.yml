@@ -89,6 +89,52 @@
           - docker-compose-plugin
         state: present
         update_cache: yes
+        
+- name: Enable Intel QuickSync Hardware Transcoding (cores)
+  hosts: cores
+  tasks:
+    - name: Check if 'non-free' apt component is already enabled
+      ansible.builtin.command: grep -q '^Components:.*non-free' /etc/apt/sources.list.d/debian.sources
+      register: nonfree_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add 'non-free' component to Debian apt sources (required for intel-media-va-driver-non-free)
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list.d/debian.sources
+        regexp: '^(Components:.*)$'
+        replace: '\1 non-free'
+      when: nonfree_check.rc != 0
+
+    - name: Install Intel VA-API / QuickSync packages
+      ansible.builtin.apt:
+        name:
+          - intel-media-va-driver-non-free
+          - vainfo
+        state: present
+        update_cache: yes
+
+    - name: Get 'render' group GID (needed for docker-compose group_add)
+      ansible.builtin.command: getent group render
+      register: render_group
+      changed_when: false
+
+    - name: Report render group GID
+      ansible.builtin.debug:
+        msg: "render GID is {{ render_group.stdout.split(':')[2] }} — use this in mediastack's group_add for jellyfin"
+
+    - name: Verify GPU render device is present
+      ansible.builtin.stat:
+        path: /dev/dri/renderD128
+      register: dri_device
+
+    - name: Warn if iGPU hasn't been passed through from Proxmox yet
+      ansible.builtin.debug:
+        msg: >
+          WARNING: /dev/dri/renderD128 not found. Driver packages are installed,
+          but the iGPU hasn't been passed through from Proxmox yet — check the
+          VM's PCI/SR-IOV passthrough config before Jellyfin can use hardware transcoding.
+      when: not dri_device.stat.exists
 
 - name: Configure Core VM Specialized Storage
   hosts: cores
