@@ -1,3 +1,8 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 # APPNICENAME=Jellyfin
 # APPDESCRIPTION=Media server for movies, TV, and music
@@ -7,6 +12,7 @@ services:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "8096:8096"   # Web UI (HTTP)
       # - "8920:8920" # Web UI (HTTPS) - only if you configure a cert inside Jellyfin
@@ -40,6 +46,7 @@ services:
     image: crocodilestick/calibre-web-automated:latest
     container_name: calibre-web-automated
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "8083:8083"
     environment:

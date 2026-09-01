@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 # APPNICENAME=Stash
 # APPDESCRIPTION=An organizer for your porn, written in Go
 
@@ -13,11 +19,7 @@ services:
       - "9001:9001"
     ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
     # network_mode: host
-    logging:
-      driver: "json-file"
-      options:
-        max-file: "10"
-        max-size: "2m"
+    logging: *default-logging
     environment:
       - STASH_STASH=/data/
       - STASH_GENERATED=/generated/
@@ -60,11 +62,7 @@ services:
       - "9002:9002"
     ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
     # network_mode: host
-    logging:
-      driver: "json-file"
-      options:
-        max-file: "10"
-        max-size: "2m"
+    logging: *default-logging
     environment:
       - STASH_STASH=/data/
       - STASH_GENERATED=/generated/
@@ -104,6 +102,7 @@ services:
     image: ofl0w/stash-vr:latest
     container_name: stash-vr
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "9666:9666"
     environment:
@@ -126,10 +125,11 @@ services:
 
       #FORCE_HTTPS: "true"
 
-stashpersonal-vr:
+  stashpersonal-vr:
     image: ofl0w/stash-vr:latest
     container_name: stashpersonal-vr
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "9666:9666"
     environment:
@@ -156,16 +156,12 @@ stashpersonal-vr:
       image: stashapp/stash:latest
       container_name: stashAppReel
       restart: unless-stopped
+      logging: *default-logging
       ## the container's port must be the same with the STASH_PORT in the environment section
       ports:
         - "9003:9003"
       ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
       # network_mode: host
-      logging:
-        driver: "json-file"
-        options:
-          max-file: "10"
-          max-size: "2m"
       environment:
         - STASH_STASH=/data/
         - STASH_GENERATED=/generated/
@@ -200,6 +196,8 @@ stashpersonal-vr:
       image: syncthing/syncthing
       container_name: syncthingstash
       hostname: my-syncthing
+      restart: unless-stopped
+      logging: *default-logging
       environment:
           - PUID=$PUID
           - PGID=$PGID
@@ -211,7 +209,6 @@ stashpersonal-vr:
         - 22000:22000/tcp # TCP file transfers
         - 22000:22000/udp # QUIC file transfers
         - 21027:21027/udp # Local discovery
-      restart: unless-stopped
 
 
 # x-db-env: &db-env
