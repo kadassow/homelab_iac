@@ -215,6 +215,72 @@
         - Reload systemd daemon
         - Restart docker
 
+- name: Install and Configure Kopia Backup Server
+  hosts: backup
+  tasks:
+    - name: Create secure keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download and dearmor Kopia GPG signing key
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://kopia.io/signing-key | gpg --dearmor -o /etc/apt/keyrings/kopia-keyring.gpg
+        creates: /etc/apt/keyrings/kopia-keyring.gpg
+      args:
+        executable: /bin/bash
+
+    - name: Ensure keyring file has correct permissions
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/kopia-keyring.gpg
+        mode: '0644'
+
+    - name: Add Kopia apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kopia-keyring.gpg] http://packages.kopia.io/apt/ stable main"
+        state: present
+        filename: kopia
+
+    - name: Install Kopia
+      ansible.builtin.apt:
+        name: kopia
+        state: present
+        update_cache: yes
+
+
+
+    - name: Check if Kopia repository is already initialized
+      ansible.builtin.stat:
+        path: /mnt/backup-drive/kopia-repo/kopia.repository
+      register: kopia_repo_check
+
+    - name: Initialize Kopia repository (first run only)
+      ansible.builtin.command:
+        cmd: >
+          kopia repository create filesystem
+          --path=/mnt/backup-drive/kopia-repo
+          --password={{ vault_kopia_repo_password }}
+      when: not kopia_repo_check.stat.exists
+      no_log: true
+
+
+
+    - name: Deploy systemd unit for Kopia server
+      ansible.builtin.template:
+        src: templates/kopia-server.service.j2
+        dest: /etc/systemd/system/kopia-server.service
+        mode: '0644'
+      notify:
+        - Reload systemd daemon
+        - Restart kopia server
+
+    - name: Enable and start Kopia server
+      ansible.builtin.systemd:
+        name: kopia-server
+        enabled: true
+        state: started
+        
   handlers:
     - name: Reload systemd daemon
       ansible.builtin.systemd:
@@ -223,4 +289,10 @@
     - name: Restart docker
       ansible.builtin.systemd:
         name: docker
+        state: restarted
+
+        
+    - name: Restart kopia server
+      ansible.builtin.systemd:
+        name: kopia-server
         state: restarted

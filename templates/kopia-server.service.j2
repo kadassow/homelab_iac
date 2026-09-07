@@ -1,0 +1,15 @@
+[Unit]
+Description=Kopia Backup Server
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/bin/kopia server start \
+  --address=0.0.0.0:51515 \
+  --tls-generate-cert \
+  --server-username={{ vault_kopia_server_admin_user }} \
+  --server-password={{ vault_kopia_server_admin_password }}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
