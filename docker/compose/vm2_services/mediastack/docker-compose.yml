@@ -4,6 +4,12 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
+
+networks:
+  media-network:
+    driver: bridge
+
+
 # APPNICENAME=Jellyfin
 # APPDESCRIPTION=Media server for movies, TV, and music
 
@@ -66,6 +72,33 @@ services:
     networks:
       - media-network
 
-networks:
-  media-network:
-    driver: bridge
+# APPNICENAME=NutriTrace
+# APPDESCRIPTION=Self-hosted personal nutrition tracker
+  nutritrace:
+    image: ghcr.io/traceapps/nutritrace:latest
+    container_name: nutritrace
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "3000:3001"
+    environment:
+      - TZ=$TZ
+      - JWT_SECRET=$NUTRITRACE_JWT_SECRET
+      - DB_PATH=/data/db/nutritrace.db
+      - UPLOADS_PATH=/data/uploads
+      - OIDC_ISSUER=$NUTRITRACE_OIDC_ISSUER
+      - OIDC_CLIENT_ID=$NUTRITRACE_OIDC_CLIENT_ID
+      - OIDC_CLIENT_SECRET=$NUTRITRACE_OIDC_CLIENT_SECRET
+      - OIDC_DISPLAY_NAME=Authentik
+      - OIDC_SCOPE=openid profile email
+      # Optional - auto-provision NutriTrace accounts for anyone who signs in
+      # via Authentik. Leave off (0) if you'd rather manually invite family
+      # members instead of blanket auto-onboarding.
+      - OIDC_AUTO_REGISTER=0
+    volumes:
+      ## SQLite DB - local disk only, same locking concern as Jellyfin/arr/Stash
+      - $LOCALDOCKER_DIR/nutritrace/db:/data/db
+      ## Food/meal photos + server-side backups - not sqlite, fine on CIFS
+      - $DOCKERCONFIGS_DIR/nutritrace/uploads:/data/uploads
+    networks:
+      - media-network
