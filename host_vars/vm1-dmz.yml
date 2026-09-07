@@ -1,0 +1,3 @@
+# host_vars/vm1-dmz.yml
+kopia_client_password: "{{ vault_kopia_client_pw_vm1_dmz }}"
+kopia_backup_path: /etc/wireguard   # adjust to wherever its actual configs live

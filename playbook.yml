@@ -281,6 +281,71 @@
         enabled: true
         state: started
         
+
+
+- name: Configure Kopia Backup Clients
+  hosts: docker_hosts
+  vars:
+    kopia_server_url: "{{ vault_kopia_server_url }}" # the Kopia LXC's address
+    kopia_server_cert_fingerprint: "{{ vault_kopia_server_cert_fingerprint }}"
+  tasks:
+    - name: Create secure keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download and dearmor Kopia GPG signing key
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://kopia.io/signing-key | gpg --dearmor -o /etc/apt/keyrings/kopia-keyring.gpg
+        creates: /etc/apt/keyrings/kopia-keyring.gpg
+      args:
+        executable: /bin/bash
+
+    - name: Add Kopia apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kopia-keyring.gpg] http://packages.kopia.io/apt/ stable main"
+        state: present
+        filename: kopia
+
+    - name: Install Kopia client
+      ansible.builtin.apt:
+        name: kopia
+        state: present
+        update_cache: yes
+
+    - name: Check if this host is already connected to the Kopia repository
+      ansible.builtin.stat:
+        path: /root/.config/kopia/repository.config
+      register: kopia_connected
+
+    - name: Connect to the Kopia server (first run only)
+      ansible.builtin.command:
+        cmd: >
+          kopia repository connect server
+          --url={{ kopia_server_url }}
+          --username={{ inventory_hostname }}@{{ inventory_hostname }}
+          --password={{ kopia_client_password }}
+          --server-cert-fingerprint={{ kopia_server_cert_fingerprint }}
+      when: not kopia_connected.stat.exists
+      no_log: true
+
+    - name: Set snapshot retention policy for this host's backup path
+      ansible.builtin.command:
+        cmd: >
+          kopia policy set {{ kopia_backup_path }}
+          --keep-daily 7 --keep-weekly 4 --keep-monthly 3
+      changed_when: false   # kopia policy set is idempotent; nothing meaningful to report as changed
+
+    - name: Schedule nightly snapshot via cron
+      ansible.builtin.cron:
+        name: "Kopia nightly snapshot - {{ kopia_backup_path }}"
+        minute: "30"
+        hour: "2"
+        job: "/usr/bin/kopia snapshot create {{ kopia_backup_path }} >> /var/log/kopia-snapshot.log 2>&1"
+
+
+
   handlers:
     - name: Reload systemd daemon
       ansible.builtin.systemd:
