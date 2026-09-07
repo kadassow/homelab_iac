@@ -80,6 +80,7 @@
         filename: docker
 
     - name: Install Docker Engine and Docker Compose Plugin
+      hosts: docker_hosts
       apt:
         name:
           - docker-ce
