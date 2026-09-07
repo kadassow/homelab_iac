@@ -1,5 +1,5 @@
 ---
-- name: Standardize and Install Docker Engine
+- name: Standardize All Hosts
   hosts: all
   gather_facts: true
   tasks:
@@ -15,11 +15,6 @@
         - net.ipv6.conf.default.disable_ipv6
         - net.ipv6.conf.lo.disable_ipv6
 
-    - name: Remove any stale/malformed Docker apt source (safe if absent)
-      file:
-        path: /etc/apt/sources.list.d/docker.list
-        state: absent
-
     - name: Update apt cache and upgrade system packages
       apt:
         update_cache: yes
@@ -30,9 +25,23 @@
         name:
           - apt-transport-https
           - ca-certificates
+        state: present
+
+- name: Install Docker Engine and Docker Compose Plugin (docker_hosts only)
+  hosts: docker_hosts
+  gather_facts: true
+  tasks:
+    - name: Install packages needed to fetch/verify the Docker repo key
+      apt:
+        name:
           - curl
           - gnupg
         state: present
+
+    - name: Remove any stale/malformed Docker apt source (safe if absent)
+      file:
+        path: /etc/apt/sources.list.d/docker.list
+        state: absent
 
     # MODERN DEBIAN 13 KEY MANAGEMENT (Replaces legacy apt_key)
     - name: Create secure keyrings directory
@@ -80,7 +89,6 @@
         filename: docker
 
     - name: Install Docker Engine and Docker Compose Plugin
-      hosts: docker_hosts
       apt:
         name:
           - docker-ce
@@ -90,7 +98,7 @@
           - docker-compose-plugin
         state: present
         update_cache: yes
-        
+
 - name: Enable Intel QuickSync Hardware Transcoding (cores)
   hosts: cores
   tasks:
@@ -156,16 +164,19 @@
           password={{ CIFS_PASSWORD }}
       no_log: true
 
-    - name: Create local (non-CIFS) docker data directories
+    - name: Create local (non-CIFS) docker data directory
+      # LOCALDOCKER_DIR is local disk on purpose — SQLite-backed app configs
+      # (arr stack, Stash, Jellyfin, NutriTrace) live here because CIFS/SMB
+      # doesn't reliably support the POSIX locking SQLite depends on.
+      # NOTE: previously this task incorrectly looped over DATA_DIR/
+      # DOCKERCONFIGS_DIR (the CIFS paths) and never created LOCALDOCKER_DIR
+      # at all — fixed here.
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: "{{ LOCALDOCKER_DIR }}"
         state: directory
         owner: "{{ PUID }}"
         group: "{{ PGID }}"
         mode: '0755'
-      loop:
-        - "{{ DATA_DIR }}"
-        - "{{ DOCKERCONFIGS_DIR }}"
 
     - name: Ensure mount point directories exist
       ansible.builtin.file:
