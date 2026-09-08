@@ -237,6 +237,49 @@
         name: docker
         state: restarted
 
+
+
+- name: Deploy mediastack to vm2-services
+  hosts: cores
+  vars:
+    stack_dir: /opt/stacks/mediastack
+  tasks:
+    - name: Create local subdirectories mediastack needs before first start
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ PUID }}"
+        group: "{{ PGID }}"
+        mode: '0755'
+      loop:
+        - "{{ LOCALDOCKER_DIR }}/jellyfin/config"
+        - "{{ LOCALDOCKER_DIR }}/jellyfin/cache"
+        - "{{ LOCALDOCKER_DIR }}/calibre-web-automated/config"
+        - "{{ LOCALDOCKER_DIR }}/nutritrace/db"
+
+    - name: Ensure stack directory exists on the VM
+      ansible.builtin.file:
+        path: "{{ stack_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy mediastack compose file to the VM
+      ansible.builtin.copy:
+        src: docker/compose/vm2_services/mediastack/docker-compose.yml
+        dest: "{{ stack_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Render mediastack .env file
+      ansible.builtin.template:
+        src: templates/mediastack.env.j2
+        dest: "{{ stack_dir }}/.env"
+        mode: '0600'
+      no_log: true
+
+    - name: Deploy mediastack
+      ansible.builtin.shell:
+       docker compose up -d args: {chdir: "{{ stack_dir }}"}
+       
 - name: Install and Configure Kopia Backup Server
   hosts: backup
   tasks:
@@ -408,44 +451,3 @@
         hour: "2"
         job: "/usr/bin/kopia snapshot create {{ kopia_backup_path }} >> /var/log/kopia-snapshot.log 2>&1"
 
-
-- name: Deploy mediastack to vm2-services
-  hosts: cores
-  vars:
-    stack_dir: /opt/stacks/mediastack
-  tasks:
-    - name: Create local subdirectories mediastack needs before first start
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        owner: "{{ PUID }}"
-        group: "{{ PGID }}"
-        mode: '0755'
-      loop:
-        - "{{ LOCALDOCKER_DIR }}/jellyfin/config"
-        - "{{ LOCALDOCKER_DIR }}/jellyfin/cache"
-        - "{{ LOCALDOCKER_DIR }}/calibre-web-automated/config"
-        - "{{ LOCALDOCKER_DIR }}/nutritrace/db"
-
-    - name: Ensure stack directory exists on the VM
-      ansible.builtin.file:
-        path: "{{ stack_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Copy mediastack compose file to the VM
-      ansible.builtin.copy:
-        src: docker/compose/vm2_services/mediastack/docker-compose.yml
-        dest: "{{ stack_dir }}/docker-compose.yml"
-        mode: '0644'
-
-    - name: Render mediastack .env file
-      ansible.builtin.template:
-        src: templates/mediastack.env.j2
-        dest: "{{ stack_dir }}/.env"
-        mode: '0600'
-      no_log: true
-
-    - name: Deploy mediastack
-      ansible.builtin.shell:
-       docker compose up -d args: {chdir: "{{ stack_dir }}"}
