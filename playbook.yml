@@ -277,9 +277,16 @@
       no_log: true
 
     - name: Deploy mediastack
-      ansible.builtin.shell:
-       docker compose up -d args: {chdir: "{{ stack_dir }}"}
-       
+      community.docker.docker_compose_v2:
+        project_src: "{{ stack_dir }}"
+        state: present
+
+    # - name: Deploy mediastack
+    #   ansible.builtin.shell:
+    #    cmd: docker compose up -d 
+    #    args:
+    #     {chdir: "{{ stack_dir }}"}
+
 - name: Install and Configure Kopia Backup Server
   hosts: backup
   tasks:
