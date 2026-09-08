@@ -272,18 +272,24 @@
 
 
 
-    - name: Check if Kopia repository is already initialized
-      ansible.builtin.stat:
-        path: /mnt/backup-drive/kopia-repo/kopia.repository
-      register: kopia_repo_check
-
-    - name: Initialize Kopia repository (first run only)
+    - name: Initialize Kopia repository (idempotent — treats 'already exists' as success)
+      # Rather than pre-checking for one specific marker file (fragile —
+      # Kopia's internal file layout isn't a stable contract we should rely
+      # on, and a mismatch here caused this task to re-attempt creation on
+      # every run, failing from the second run onward with "found existing
+      # data in storage location"), this task now just attempts creation and
+      # treats that exact error as confirmation the repo already exists —
+      # not a real failure.
       ansible.builtin.command:
         cmd: >
           kopia repository create filesystem
           --path=/mnt/backup-drive/kopia-repo
           --password={{ vault_kopia_repo_password }}
-      when: not kopia_repo_check.stat.exists
+      register: kopia_repo_init
+      failed_when:
+        - kopia_repo_init.rc != 0
+        - "'found existing data in storage location' not in kopia_repo_init.stderr"
+      changed_when: kopia_repo_init.rc == 0
       no_log: true
 
 
