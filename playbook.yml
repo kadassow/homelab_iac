@@ -227,6 +227,16 @@
         - Reload systemd daemon
         - Restart docker
 
+  handlers:
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+
 - name: Install and Configure Kopia Backup Server
   hosts: backup
   tasks:
@@ -292,7 +302,16 @@
         name: kopia-server
         enabled: true
         state: started
-        
+
+  handlers:
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart kopia server
+      ansible.builtin.systemd:
+        name: kopia-server
+        state: restarted
 
 
 - name: Configure Kopia Backup Clients
@@ -355,21 +374,3 @@
         minute: "30"
         hour: "2"
         job: "/usr/bin/kopia snapshot create {{ kopia_backup_path }} >> /var/log/kopia-snapshot.log 2>&1"
-
-
-
-  handlers:
-    - name: Reload systemd daemon
-      ansible.builtin.systemd:
-        daemon_reload: true
-
-    - name: Restart docker
-      ansible.builtin.systemd:
-        name: docker
-        state: restarted
-
-        
-    - name: Restart kopia server
-      ansible.builtin.systemd:
-        name: kopia-server
-        state: restarted
