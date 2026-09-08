@@ -288,6 +288,12 @@
 
 
 
+    - name: Ensure /etc/kopia directory exists for persistent TLS cert/key
+      ansible.builtin.file:
+        path: /etc/kopia
+        state: directory
+        mode: '0700'
+
     - name: Deploy systemd unit for Kopia server
       ansible.builtin.template:
         src: templates/kopia-server.service.j2

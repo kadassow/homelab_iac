@@ -7,6 +7,8 @@ User=root
 ExecStart=/usr/bin/kopia server start \
   --address=0.0.0.0:51515 \
   --tls-generate-cert \
+  --tls-cert-file=/etc/kopia/kopia-server.crt \
+  --tls-key-file=/etc/kopia/kopia-server.key \
   --server-username={{ vault_kopia_server_admin_user }} \
   --server-password={{ vault_kopia_server_admin_password }}
 Restart=on-failure
