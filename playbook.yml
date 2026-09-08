@@ -315,6 +315,26 @@
         enabled: true
         state: started
 
+    - name: List existing Kopia server users
+      ansible.builtin.command: kopia server user list
+      register: kopia_user_list
+      changed_when: false
+
+    - name: Add Kopia server user for each docker host (idempotent)
+      # Runs directly against the repository on this host (kopia-server has
+      # local repo access from the earlier `repository create`), so no HTTP
+      # round-trip / running server dependency for this step. Loops over
+      # every docker_hosts member using the kopia_client_password already
+      # defined in each host's host_vars (e.g. host_vars/vm2-services.yml).
+      ansible.builtin.command: >
+        kopia server user add {{ item }}@{{ item }}
+        --user-password={{ hostvars[item]['kopia_client_password'] }}
+      loop: "{{ groups['docker_hosts'] }}"
+      when: (item ~ '@' ~ item) not in kopia_user_list.stdout
+      no_log: true
+      notify:
+        - Restart kopia server
+
   handlers:
     - name: Reload systemd daemon
       ansible.builtin.systemd:
@@ -367,7 +387,8 @@
         cmd: >
           kopia repository connect server
           --url={{ kopia_server_url }}
-          --username={{ inventory_hostname }}@{{ inventory_hostname }}
+          --override-username={{ inventory_hostname }}
+          --override-hostname={{ inventory_hostname }}
           --password={{ kopia_client_password }}
           --server-cert-fingerprint={{ kopia_server_cert_fingerprint }}
       when: not kopia_connected.stat.exists
