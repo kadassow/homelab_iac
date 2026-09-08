@@ -102,17 +102,29 @@
 - name: Enable Intel QuickSync Hardware Transcoding (cores)
   hosts: cores
   tasks:
-    - name: Check if 'non-free' apt component is already enabled
-      ansible.builtin.command: grep -q '^Components:.*non-free' /etc/apt/sources.list.d/debian.sources
+    # NOTE: vm2-services uses the legacy /etc/apt/sources.list format
+    # (no /etc/apt/sources.list.d/debian.sources deb822 file exists on this
+    # host), unlike some other Debian 13 images. The original task assumed
+    # deb822 unconditionally and failed with "Path ... does not exist".
+    # Fixed to target the legacy file's actual line format instead
+    # (confirmed via `cat /etc/apt/sources.list` on vm2-services):
+    #   deb http://deb.debian.org/debian/ trixie main non-free-firmware
+    #   deb-src http://deb.debian.org/debian/ trixie main non-free-firmware
+    #   deb http://deb.debian.org/debian/ trixie-updates main non-free-firmware
+    #   deb-src http://deb.debian.org/debian/ trixie-updates main non-free-firmware
+    # trixie-security lines are intentionally left untouched — Debian's
+    # security repo doesn't carry contrib/non-free components.
+    - name: Check if 'contrib non-free' already added to sources.list
+      ansible.builtin.command: grep -q 'contrib non-free non-free-firmware' /etc/apt/sources.list
       register: nonfree_check
       failed_when: false
       changed_when: false
 
-    - name: Add 'non-free' component to Debian apt sources (required for intel-media-va-driver-non-free)
+    - name: Add 'contrib non-free' components to active deb/deb-src lines
       ansible.builtin.replace:
-        path: /etc/apt/sources.list.d/debian.sources
-        regexp: '^(Components:.*)$'
-        replace: '\1 non-free'
+        path: /etc/apt/sources.list
+        regexp: '^(deb(-src)? \S+ \S+ main) non-free-firmware$'
+        replace: '\1 contrib non-free non-free-firmware'
       when: nonfree_check.rc != 0
 
     - name: Install Intel VA-API / QuickSync packages
