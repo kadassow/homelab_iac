@@ -237,8 +237,6 @@
         name: docker
         state: restarted
 
-
-
 - name: Deploy mediastack to vm2-services
   hosts: cores
   vars:
@@ -278,15 +276,7 @@
 
     - name: Deploy mediastack
       community.docker.docker_compose_v2:
-        project_src: "{{ stack_dir }}"
-        state: present
-
-    # - name: Deploy mediastack
-    #   ansible.builtin.shell:
-    #    cmd: docker compose up -d 
-    #    args:
-    #     {chdir: "{{ stack_dir }}"}
-
+      
 - name: Install and Configure Kopia Backup Server
   hosts: backup
   tasks:
@@ -349,6 +339,36 @@
         path: /etc/kopia
         state: directory
         mode: '0700'
+
+    - name: Install openssl (for generating the persistent TLS cert)
+      ansible.builtin.apt:
+        name: openssl
+        state: present
+
+    - name: Generate persistent self-signed TLS cert for Kopia server (one-time)
+      # IMPORTANT: Kopia's own --tls-generate-cert flag regenerates the cert
+      # on every start UNLESS the target file is missing — if the file
+      # already exists it treats that as an unsafe conflict and the process
+      # exits non-zero ("TLS cert file already exists"), which is what
+      # caused the crash-loop. Generating the cert ourselves, once, via
+      # openssl (idempotent via `creates:`) and dropping --tls-generate-cert
+      # from the systemd unit entirely avoids that trap — Kopia just loads
+      # whatever's already on disk every time, so the fingerprint is stable
+      # for real, permanently, not just across a lucky first run.
+      ansible.builtin.command:
+        cmd: >
+          openssl req -x509 -newkey rsa:4096
+          -keyout /etc/kopia/kopia-server.key
+          -out /etc/kopia/kopia-server.crt
+          -days 3650 -nodes -subj "/CN=kopia-server"
+        creates: /etc/kopia/kopia-server.crt
+
+    - name: Secure the private key file permissions
+      ansible.builtin.file:
+        path: /etc/kopia/kopia-server.key
+        mode: '0600'
+        owner: root
+        group: root
 
     - name: Deploy systemd unit for Kopia server
       ansible.builtin.template:
@@ -457,4 +477,3 @@
         minute: "30"
         hour: "2"
         job: "/usr/bin/kopia snapshot create {{ kopia_backup_path }} >> /var/log/kopia-snapshot.log 2>&1"
-
