@@ -82,10 +82,8 @@ Leveraging Ansible to consistently build that infrastructure.
 
 - `PUID`, `PGID`, `TZ`
 - `DATA_DIR`, `DOCKERCONFIGS_DIR` — the two real CIFS mount points
-- `LOCALDOCKER_DIR` (default `/opt/docker-local`) — local disk for
-  sqlite/logs; `CONFIGS_DIR` and `SQLITE_DIR` are subfolders under it, kept
-  as separate variable names only so existing compose files (`$CONFIGS_DIR`,
-  `$SQLITE_DIR`) don't need to change
+- `LOCALDOCKER_DIR` (default `/localdocker`) — local disk for
+  sqlite/logs; 
 - `cifs_server` + `cifs_mounts` list (server IP and share names — **edit
   `cifs_server` to your real NAS/OMV IP**, currently a placeholder)
 - Secret values (`VPNPROVIDER`, `VPNUSERID`, `VPNPASSWORD`, `VPNREGION`,
