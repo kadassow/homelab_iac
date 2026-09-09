@@ -78,7 +78,7 @@ Leveraging Ansible to consistently build that infrastructure.
    race is *inside* `vm2-services`, not between the two VMs. Handlers
    (`daemon-reload` + `restart docker`) only fire when the drop-in changes.
 
-## `group_vars/all.yml` (non-secret, committed in plain YAML)
+## `group_vars/all/vars.yml` (non-secret, committed in plain YAML)
 
 - `PUID`, `PGID`, `TZ`
 - `DATA_DIR`, `DOCKERCONFIGS_DIR` — the two real CIFS mount points
@@ -93,13 +93,48 @@ Leveraging Ansible to consistently build that infrastructure.
   `CIFS_PASSWORD`) are all just references to `vault_`-prefixed variables —
   the real values live only in the encrypted vault file.
 
-## `group_vars/vault.yml` (encrypted, committed as ciphertext)
+## `group_vars/all/vault.yml` (encrypted, committed as ciphertext)
 
-Holds: `vault_vpn_provider`, `vault_vpn_userid`, `vault_vpn_password`,
-`vault_vpn_region`, `vault_jdownload_email`, `vault_jdownload_pass`,
-`vault_stash_api_key`, `vault_cifs_username`, `vault_cifs_password`.
+Holds: 
 
-Workflow: `ansible-vault create group_vars/vault.yml` the first time (opens
+# VPN Credentials
+vault_vpn_provider:       # e.g. protonvpn, mullvad, nordvpn
+vault_vpn_userid: 
+vault_vpn_password: 
+vault_vpn_region: 
+
+# Jdownloader
+vault_jdownload_email: 
+vault_jdownload_pass: 
+
+# Generate a FRESH key in Stash after deploying — the one currently
+# committed in stashstack/docker-compose.yml is compromised and must
+# be rotated, not reused here.
+vault_stash_api_key: # pro stash
+vault_stash_api_key_personal: # personal stash
+vault_stash_ip: # ip address for stashapp server
+
+# CIFS credentials
+vault_cifs_username: # user name to use for omv cifs
+vault_cifs_password: # password to use for omv cifs 
+vault_cifs_server: # IP address to omv
+
+# Nutritrace secrets
+vault_nutritrace_jwt_secret: 
+vault_nutritrace_oidc_client_secret: 
+vault_oidc_issuer: # base dns name, assuming vars will prefix with scheme and suffix with path as needed 
+
+# Kopia Backup Server
+vault_kopia_repo_password: 
+vault_kopia_server_admin_user: 
+vault_kopia_server_admin_password: 
+vault_kopia_server_url:  # base url only
+vault_kopia_client_pw_vm1_dmz: 
+vault_kopia_client_pw_vm2_services: 
+vault_kopia_server_cert_fingerprint: 
+
+
+Workflow: `ansible-vault create group_vars/all/vault.yml` the first time (opens
 your editor, encrypts on save — plaintext never touches disk unencrypted);
 `ansible-vault edit group_vars/vault.yml` for any future changes. Run
 playbooks with `--ask-vault-pass` or `--vault-password-file`. The `.example`
@@ -112,6 +147,7 @@ API key hardcoded in plaintext** in the `stash-vr` service's `STASH_API_KEY`
 environment value. Since it's been committed to git, treat it as compromised.
 Fix: change that line to `STASH_API_KEY: "${STASH_API_KEY}"` and generate a
 fresh key in Stash after deployment — do not reuse the old one.
+** This is corrected as a secret in the vault.yml now **
 
 ## Status: DONE so far
 
@@ -120,28 +156,53 @@ fresh key in Stash after deployment — do not reuse the old one.
 - ✅ Secrets scaffolding (`all.yml` + encrypted `vault.yml`) committed
 - ✅ CIFS mount + boot-race-condition fix added to playbook
 - ✅ Local disk path separated out for sqlite/logs/configs
-
-## Status: NOT DONE yet — next steps
-
-1. **Fix the hardcoded Stash API key** in the compose file (see above) and
+- ✅ 1. **Fix the hardcoded Stash API key** in the compose file (see above) and
    rotate the key.
-   ** This is Fixed **
-3. **Get the compose files onto each VM** — decide between `ansible.builtin.
-   template`/`copy` per stack vs. a `git clone`/`synchronize` of the whole
-   repo onto each host.
-4. **Render `.env` files per stack** so `docker compose` can actually resolve
+   ** This is Fixed, api key in encrypted vault.yml **
+- ✅ 4. *Render `.env` files per stack** so `docker compose` can actually resolve
    `$PUID`, `$DATA_DIR`, `$VPNPASSWORD`, etc. — compose does not know about
    Ansible's variable space on its own; it just reads a `.env` file sitting
    next to each `docker-compose.yml`. This still needs to be built.
+   ** This is working for nutritrace in the media stack, assuming similar build for other stacks **
+
+- ✅ 6. **Deploy**: once 2–4 are done, add a task using
+   `community.docker.docker_compose_v2` (or `command: docker compose up -d`
+
+- ✅ Authentik deployed (dedicated LXC via Proxmox helper script) and
+  NutriTrace OIDC login confirmed working end-to-end — see
+  `AUTHENTIK_OIDC_SETUP.md`
+
+
+## Status: NOT DONE yet — next steps
+
+
+3. **Get the compose files onto each VM** — decide between `ansible.builtin.
+   template`/`copy` per stack vs. a `git clone`/`synchronize` of the whole
+   repo onto each host.
+
 5. **Confirm DMZ ↔ Services VM firewall rules** — what ports NPM/AdGuard/
    WireGuard expose publicly, and what's allowed DMZ → services VM
    internally. Not yet addressed; likely a manual firewall/router
    configuration step rather than something this playbook handles.
-6. **Deploy**: once 2–4 are done, add a task using
-   `community.docker.docker_compose_v2` (or `command: docker compose up -d`
+
+- confirm jellyfin decodes using intel qsv gpu features.
+- verify docker containers store things in the correct locations
+- rebuild omv server to host new terramaster d4-320 das with 4 20tb hard drives.  I will use mergerfs and snapraid plugins in omv.
+- setup calibre web automated
+- setup arr stack to be configured through ansible
+- setup kopia server and clients to centralize backup strategy.
 
 ## Questions and future tasks
-1 - Can we point my arrStack and StashStack to an authentik server which then authorizes first and then proxies to the right service?
-2 - I want to support direct access still for my home wifi users without authentik auth for certain apps.  Is this possible?
-   as a fallback) per stack, targeting the correct host group
-   (`gateways` → vm_dmz composes, `cores` → vm2_services composes).
+1. ~~Can we point my arrStack and StashStack to an authentik server which
+   then authorizes first and then proxies to the right service?~~
+   **Answered**: yes, via Authentik's Forward Auth (Proxy Provider) —
+   not yet implemented, next integration target. See
+   `AUTHENTIK_OIDC_SETUP.md`.
+2. I want to support direct access still for my home wifi users without
+   authentik auth for certain apps. Is this possible?
+   **Leaning toward**: routing LAN traffic to `vm2-services` directly via
+   internal DNS (AdGuard), bypassing NPM/Authentik entirely for LAN
+   clients, rather than an IP-based Authentik policy. Not yet built.
+
+
+AUTHENTIK_OIDC_SETUP.md — Authentik LXC deployment + NutriTrace OIDC integration, including the full troubleshooting chain (redirect URI, issuer scheme, provider-ID mismatch, account linking).
