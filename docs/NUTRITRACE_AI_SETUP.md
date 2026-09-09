@@ -69,14 +69,14 @@ Both are pullable directly via Ollama (`ollama pull moondream`,
      container_name: ollama
      restart: unless-stopped
      volumes:
-       - $LOCALDOCKER_DIR/ollama:/root/.ollama
+       - $LOCALCACHE_DIR/ollama:/root/.ollama
      networks:
        - media-network
    ```
-   Model weights go on `LOCALDOCKER_DIR` (local disk), **not** CIFS — not a
+   Model weights go on `LOCALCACHE_DIR` (local disk), **not** CIFS — not a
    SQLite-locking concern like the rest of the local-disk rule, just that a
    multi-GB model file should have fast local reads rather than getting
-   pulled over SMB on every container restart.
+   pulled over SMB on every container restart.  This is not necessary to backup with kopia.
 
 2. **Pull the model post-deploy.** Either a one-off `docker exec ollama
    ollama pull moondream`, or a proper Ansible task (`community.docker.docker_container_exec`

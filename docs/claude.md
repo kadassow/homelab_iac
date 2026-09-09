@@ -12,10 +12,12 @@ Leveraging Ansible to consistently build that infrastructure.
 - **DMZ VM** (`vm1-dmz`, inventory group `gateways`) — limited attack surface,
   runs WireGuard + reverse proxy (AdGuard/NPM). Compose files live in
   `docker/compose/vm_dmz/` (`proxystack`, `vpnstack`).
+  This currently has 8gb ssd space allocated, up to 2gb ram, leveraging 1 cpu cores.
 - **Services VM** (`vm2-services`, inventory group `cores`) — hosts the actual
   internet-accessible Docker services. Compose files live in
   `docker/compose/vm2_services/` (`arrstack`, `infrastructure`, `mediastack`,
-  `photostack`, `smarthome`, `stashstack`).
+  `photostack`, `smarthome`, `stashstack`).  
+  This currently has 100gb ssd space allocated, up to 8gb ram, leveraging 4 cpu cores.
 - Both VMs run **Debian 13 (Trixie)**.
 - Ansible control node: **must be Linux or WSL** — `ansible-vault` and Ansible's
   control-node functionality aren't supported on native Windows. Git pushes of

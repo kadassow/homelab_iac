@@ -130,13 +130,20 @@ as of this session.
   internal DNS (AdGuard) rather than through the auth-gated NPM path,
   instead of an IP-based Authentik policy — simpler and lower-risk given
   the existing DMZ/internal split.
-- `.env`-rendering gap (Ansible → per-stack `.env` file, still not built)
-  is now higher-priority than before — every one of the fixes in this
-  session was applied by hand-editing `.env` directly on `vm2-services`,
-  which means they'll silently disappear the next time that file is
-  regenerated or a fresh checkout is deployed. Confirm `all.yml` and the
-  compose file both have `NUTRITRACE_OIDC_REDIRECT_URIS` wired through
-  before relying on this staying fixed.
+
 - Consider whether other apps in the Trace family (CookTrace, LiftTrace)
   will need the same `OIDC_REDIRECT_URIS` treatment if/when deployed —
   same upstream codebase pattern likely applies.
+
+# Authentik LXC vs VM-services deploy
+Keep it as its own LXC — this is actually the same reasoning you already applied to the Kopia server, and it applies even more strongly to Authentik.
+
+Why not vm2-services:
+
+vm2-services is, by a wide margin, the highest-risk-footprint host in your homelab — it runs qBittorrent pulling from arbitrary torrent peers, Stash, and a stack of arr apps that have a track record of CVEs. If any one of those gets popped, the blast radius today is "that app, on that VM." If Authentik lived in the same docker-compose stack on that VM, a compromise there would also hand over your identity provider — session-signing keys, every OAuth2 client secret (NutriTrace's, and eventually Stash's and the arr stack's forward-auth config), and the ability to forge valid logins for anything gated behind it. That turns "one app got popped" into "everything Authentik protects is now also compromised" — worse than the sum of its parts, not just an additional risk.
+
+This is exactly the same logic your KOPIA_BACKUP_STRATEGY.md already lays out for why the Kopia server got its own dedicated LXC instead of living on vm2-services: the thing holding the keys shouldn't share a blast radius with the thing most likely to get hit.
+
+The one real downside: the Authentik LXC currently sits outside your Ansible-managed inventory (same as Kopia was, before you onboarded it). That's a legitimate gap, but it's independently fixable — you already said you want to bring your other LXCs into Ansible generically later. That's a reproducibility problem to solve on its own timeline, not a reason to fold Authentik into vm2-services's docker compose stack.
+
+Net: dedicated LXC stays the right call.
