@@ -185,7 +185,7 @@ fresh key in Stash after deployment — do not reuse the old one.
 
 - confirm jellyfin decodes using intel qsv gpu features.
 - verify docker containers store things in the correct locations
-- rebuild omv server to host new terramaster d4-320 das with 4 20tb hard drives.  I will use mergerfs and snapraid plugins in omv. I want to setup drive 1 for jellyfin, fallback to drive 3, drive 2 is stashapp data, fallback to drive 3.  drive 3 is ebook, immich.  drive 4 is parity.  I would also like to incorporate my separate external usb 20tb hdd in this and use for backups and potentially more fallback data for all pools.
+- rebuild omv server to host new terramaster d4-320 das with 4 20tb hard drives.  I will use mergerfs and snapraid plugins in omv. I want to setup drive 1 for jellyfin, fallback to drive 3, drive 2 is stashapp data, fallback to drive 3.  drive 3 is ebook, immich, anything else.  drive 4 is parity.  I would also like to incorporate my separate external usb 20tb hdd in this and use for backups and potentially more fallback data for all pools.
 We need to do this all correctly to make setup of other services much easier as my current omv build seems incorrect or inappropriate where I had just got it to work brute force style.
 
 - setup calibre web automated
@@ -193,6 +193,9 @@ We need to do this all correctly to make setup of other services much easier as 
 - setup kopia server and clients to centralize backup strategy.
 - setup live tv service in jellyfin that mimics samsung live tv channels.
 - setup authentik totp, sso, password complexity and domain auth
+- setup shelfarr service to feed into cwa
+- install portainer on docker hosts
+
 ## Questions and future tasks
 1. ~~Can we point my arrStack and StashStack to an authentik server which
    then authorizes first and then proxies to the right service?~~

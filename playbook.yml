@@ -254,6 +254,7 @@
         - "{{ LOCALCACHE_DIR }}/jellyfin/cache"
         - "{{ LOCALDOCKER_DIR }}/calibre-web-automated/config"
         - "{{ LOCALDOCKER_DIR }}/nutritrace/db"
+        - "{{ DOCKERCONFIGS_DIR }}/jellyfin/metadata"
 
     - name: Ensure stack directory exists on the VM
       ansible.builtin.file:

@@ -33,6 +33,7 @@ services:
       ## SQLite-backed library DB + user data - kept local, not CIFS (see stashstack/arrstack for why)
       - $LOCALDOCKER_DIR/jellyfin/config:/config
       - $LOCALCACHE_DIR/jellyfin/cache:/cache
+      - $DOCKERCONFIGS_DIR/jellyfin/metadata:/config/data/metadata
       ## Point these at your actual media folders. Split out however you like;
       ## Jellyfin just needs read access to the files.
       - $DATA_DIR/media/movies:/media/movies
