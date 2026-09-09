@@ -96,7 +96,10 @@ services:
       # Optional - auto-provision NutriTrace accounts for anyone who signs in
       # via Authentik. Leave off (0) if you'd rather manually invite family
       # members instead of blanket auto-onboarding.
-      - OIDC_AUTO_REGISTER=0
+      - OIDC_AUTO_REGISTER=1 # authentik will auto register the user
+      - OIDC_AUTO_LOGIN=true # login only using authentik
+      - REGISTRATION_ENABLED=false # don't allow new nutritrace registrations, i provide the authentik user access to service.
+
     volumes:
       ## SQLite DB - local disk only, same locking concern as Jellyfin/arr/Stash
       - $LOCALDOCKER_DIR/nutritrace/db:/data/db

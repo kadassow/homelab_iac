@@ -193,6 +193,7 @@ We need to do this all correctly to make setup of other services much easier as 
 - setup authentik totp, sso, password complexity and domain auth
 - setup shelfarr service to feed into cwa
 - install portainer on docker hosts
+- setup ai llm to analyze nutritrace pictures for meal and ingredient detection.
 
 ## Questions and future tasks
 1. ~~Can we point my arrStack and StashStack to an authentik server which
@@ -221,3 +222,11 @@ terramaster D4-320 DAS enclosure, 4 20tb hdd
 ## Router
 TP-LInk x75 pro mesh wifi 
  
+## Android phone apps
+I want to support native android apps - 
+Jellyfin
+bitwarden
+immich
+
+## TV apps
+I want jellyfin to be supported on tv apps - samsung, fire tv, sony.
