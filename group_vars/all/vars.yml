@@ -8,6 +8,7 @@ TZ: "America/Chicago"
 # "database is locked" / corruption issues SMB has with SQLite's locking model.
 # Visible on the host for easy backups (rsync/borg/etc. from here).
 LOCALDOCKER_DIR: /localdocker/configs
+LOCALCACHE_DIR: /dockercache
 
 # Base paths used across compose files adjust to your actual mounts
 DATA_DIR: /mnt/data

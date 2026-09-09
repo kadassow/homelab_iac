@@ -251,7 +251,7 @@
         mode: '0755'
       loop:
         - "{{ LOCALDOCKER_DIR }}/jellyfin/config"
-        - "{{ LOCALDOCKER_DIR }}/jellyfin/cache"
+        - "{{ LOCALCACHE_DIR }}/jellyfin/cache"
         - "{{ LOCALDOCKER_DIR }}/calibre-web-automated/config"
         - "{{ LOCALDOCKER_DIR }}/nutritrace/db"
 
