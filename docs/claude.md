@@ -97,34 +97,32 @@ Leveraging Ansible to consistently build that infrastructure.
 
 Holds: 
 
-# VPN Credentials
+### VPN Credentials
 vault_vpn_provider:       # e.g. protonvpn, mullvad, nordvpn
 vault_vpn_userid: 
 vault_vpn_password: 
 vault_vpn_region: 
 
-# Jdownloader
+### Jdownloader
 vault_jdownload_email: 
-vault_jdownload_pass: 
+vault_jdownload_pass:
 
-# Generate a FRESH key in Stash after deploying — the one currently
-# committed in stashstack/docker-compose.yml is compromised and must
-# be rotated, not reused here.
+### Stash secrets
 vault_stash_api_key: # pro stash
 vault_stash_api_key_personal: # personal stash
 vault_stash_ip: # ip address for stashapp server
 
-# CIFS credentials
+### CIFS credentials
 vault_cifs_username: # user name to use for omv cifs
 vault_cifs_password: # password to use for omv cifs 
 vault_cifs_server: # IP address to omv
 
-# Nutritrace secrets
+### Nutritrace secrets
 vault_nutritrace_jwt_secret: 
 vault_nutritrace_oidc_client_secret: 
 vault_oidc_issuer: # base dns name, assuming vars will prefix with scheme and suffix with path as needed 
 
-# Kopia Backup Server
+### Kopia Backup Server
 vault_kopia_repo_password: 
 vault_kopia_server_admin_user: 
 vault_kopia_server_admin_password: 
@@ -206,3 +204,16 @@ fresh key in Stash after deployment — do not reuse the old one.
 
 
 AUTHENTIK_OIDC_SETUP.md — Authentik LXC deployment + NutriTrace OIDC integration, including the full troubleshooting chain (redirect URI, issuer scheme, provider-ID mismatch, account linking).
+
+# Hardware in homelab
+## MIni pc 
+Beeink mini pc S13 - https://www.amazon.com/dp/B0DP2SGVVY?ref_=ppx_hzsearch_conn_dt_b_fed_asin_title_2&th=1
+16gb ram
+512gb ssd
+zigbee usb dongle
+20tb external usb hdd
+terramaster D4-320 DAS enclosure, 4 20tb hdd
+
+## Router
+TP-LInk x75 pro mesh wifi 
+ 
