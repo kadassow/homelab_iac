@@ -89,6 +89,7 @@ services:
       - OIDC_ISSUER=$NUTRITRACE_OIDC_ISSUER
       - OIDC_CLIENT_ID=$NUTRITRACE_OIDC_CLIENT_ID
       - OIDC_CLIENT_SECRET=$NUTRITRACE_OIDC_CLIENT_SECRET
+      - OIDC_REDIRECT_URIS=$NUTRITRACE_OIDC_REDIRECT_URIS
       - OIDC_DISPLAY_NAME=Authentik
       - OIDC_SCOPE=openid profile email
       # Optional - auto-provision NutriTrace accounts for anyone who signs in
