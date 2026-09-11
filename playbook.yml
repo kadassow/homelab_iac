@@ -26,7 +26,16 @@
           - apt-transport-https
           - ca-certificates
         state: present
-
+    - name: Set GRUB boot menu timeout
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_TIMEOUT='
+        line: 'GRUB_TIMEOUT=1'
+        state: present
+      notify: Update grub
+  handlers:
+    - name: Update grub
+      ansible.builtin.command: update-grub
 - name: Install Docker Engine and Docker Compose Plugin (docker_hosts only)
   hosts: docker_hosts
   gather_facts: true
