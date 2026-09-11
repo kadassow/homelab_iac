@@ -26,7 +26,7 @@ services:
     - 3033:3033 #yt-dlp
     - 3034:8081 #metube
     - 5800:5800 #jdownloader
-    - 3129:3129 #myjdownloader
+    # - 3129:3129 #myjdownloader
     # - 6969:6969 #whisparr
     # - 7878:7878 # radaar
     # - 8989:8989 #sonarr
@@ -39,36 +39,56 @@ services:
     - OPENVPN_USER=$VPNUSERID
     - OPENVPN_PASSWORD=$VPNPASSWORD
     - SERVER_REGIONS=$VPNREGION # Replace with your preferred region
-    healthcheck:
-      test: ping -c 1 www.google.com || exit 1
-      interval: 60s
-      timeout: 20s
-      retries: 5
-      start_period: 30s      
+    # health check not needed as it has built in
+    # healthcheck:
+    #   test: wget -qO- https://am.i.mullvad.net/connected || exit 1
+    #   interval: 60s
+    #   timeout: 20s
+    #   retries: 5
+    #   start_period: 30s      
     restart: unless-stopped
     logging: *default-logging
     networks:
       - arr-network
 
+
+  autoheal:
+    image: willfarrell/autoheal
+    container_name: autoheal
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
   qbittorrent_client:
-      image: lscr.io/linuxserver/qbittorrent
-      container_name: qbittorrent_client
-      depends_on:
-      - gluetun_open 
-      network_mode: service:gluetun_open
-      environment:
-        - PUID=$PUID
-        - PGID=$PGID
-        - TZ=$TZ
-        - WEBUI_PORT=8180
-        - TORRENTING_PORT=6881
-      volumes:
-        - $LOCALDOCKER_DIR/qbittorrent/config:/config
-        #- $DATA_DIR/downloads/torrents:/downloads
-        - $DATA_DIR/downloads/torrents:/$DATA_DIR/downloads/torrents
-      restart: unless-stopped # no | always | on-failure | unless-stopped
-      logging: *default-logging
-     
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent_client
+    depends_on:
+      gluetun_open:
+        condition: service_healthy
+    network_mode: service:gluetun_open
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+      - WEBUI_PORT=8180
+      - TORRENTING_PORT=6881
+    volumes:
+      - $LOCALDOCKER_DIR/qbittorrent/config:/config
+      #- $DATA_DIR/downloads/torrents:/downloads
+      - $DATA_DIR/downloads/torrents:/$DATA_DIR/downloads/torrents
+    restart: unless-stopped # no | always | on-failure | unless-stopped
+    logging: *default-logging
+    labels:
+    - autoheal=true
+    healthcheck:
+      test: wget -qO- --timeout=5 https://am.i.mullvad.net/connected || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
   # nzbget:
   #   image: lscr.io/linuxserver/nzbget:latest
   #   container_name: nzbget
@@ -168,23 +188,32 @@ services:
       - arr-network
 
   qbittorrent_whisparr:
-      image: lscr.io/linuxserver/qbittorrent
-      container_name: qbittorrent_whisparr
-      depends_on:
-      - gluetun_open 
-      network_mode: service:gluetun_open
-      environment:
-        - PUID=$PUID
-        - PGID=$PGID
-        - TZ=$TZ
-        - WEBUI_PORT=16969
-        - TORRENTING_PORT=6882
-      volumes:
-        - $LOCALDOCKER_DIR/qbittorrent_whisparr/config:/config
-        #- $DATA_DIR/downloads/torrents:/downloads
-        - $DATA_DIR/privatestuff/downloads/torrents:/$DATA_DIR/privatestuff/downloads/torrents
-      restart: unless-stopped # no | always | on-failure | unless-stopped
-      logging: *default-logging
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent_whisparr
+    depends_on:
+      gluetun_open:
+        condition: service_healthy
+    network_mode: service:gluetun_open
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+      - WEBUI_PORT=16969
+      - TORRENTING_PORT=6882
+    volumes:
+      - $LOCALDOCKER_DIR/qbittorrent_whisparr/config:/config
+      #- $DATA_DIR/downloads/torrents:/downloads
+      - $DATA_DIR/privatestuff/downloads/torrents:/$DATA_DIR/privatestuff/downloads/torrents
+    restart: unless-stopped # no | always | on-failure | unless-stopped
+    logging: *default-logging
+    labels:
+    - autoheal=true
+    healthcheck:
+      test: wget -qO- --timeout=5 https://am.i.mullvad.net/connected || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 
   whisparr:
@@ -296,15 +325,22 @@ services:
     image: marcobaobao/yt-dlp-webui  
     container_name: yt-dlp-webui
     depends_on:
-      - gluetun_open 
+      gluetun_open:
+        condition: service_healthy
     network_mode: service:gluetun_open
     volumes:
       - $DATA_DIR/media/youtube:/downloads # replace <your dir> with a directory on your host system
       - $DATA_DIR/media/otherstuff/yt-dlp:/otherstuff
-    healthcheck:
-      test: curl -f http://localhost:3033 || exit 1
     restart: unless-stopped
     logging: *default-logging
+    labels:
+    - autoheal=true
+    healthcheck:
+      test: wget -qO- --timeout=5 https://am.i.mullvad.net/connected || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   # subscribarr:
   #   image: 10010011/subscribarr:latest
@@ -337,7 +373,8 @@ services:
     image: jlesage/jdownloader-2
     container_name: jdownloader
     depends_on:
-      - gluetun_open 
+      gluetun_open:
+        condition: service_healthy
     network_mode: service:gluetun_open
     # ports:
     #   - 5800:5800
@@ -354,6 +391,14 @@ services:
       - $DATA_DIR/downloads/jdownloader:/output
     restart: unless-stopped
     logging: *default-logging
+    labels:
+    - autoheal=true
+    healthcheck:
+      test: wget -qO- --timeout=5 https://am.i.mullvad.net/connected || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   trailarr:
     image: nandyalu/trailarr:latest
@@ -379,46 +424,46 @@ services:
     networks:
       - arr-network
 
-  shelfarr:
-    build:
-      context: .
-    container_name: shelfarr
-    restart: unless-stopped
-    logging: *default-logging
-    ports:
-      - "5056:80"
-    volumes:
-      # Persist SQLite databases, Active Storage files, and logs
-      - $LOCALDOCKER_DIR/shelfarr:/rails/storage
-      # Output directories - audiobooks and ebooks libraries
-      - DATA_DIR/media/books/audiobooks:/audiobooks
-      - DATA_DIR/media/ebooks:/ebooks
-      # SABnzbd completed downloads folder for post-processing
-      - DATA_DIR/downloads/Torrents/books:/downloads
-      # Completed Audible backups from the optional Libation companion
-      - $LOCALDOCKER_DIR/shelfarr/libation:/imports/libation:ro
-      # Read-only bridge credential generated by the companion
-      - $LOCALDOCKER_DIR/shelfarr/libation/libation_control:/run/shelfarr-libation:ro
-    environment:
-      - PUID=$PUID
-      - PGID=$PGID
-      - TZ=$TZ
-      - RAILS_ENV=production
-      - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
-      - SOLID_QUEUE_IN_PUMA=1
-      - SHELFARR_LIBATION_URL=http://shelfarr-libation:8080
-      - SHELFARR_LIBATION_TOKEN_FILE=/run/shelfarr-libation/token
-      - SHELFARR_LIBATION_IMPORT_ROOT=/imports/libation
+  # shelfarr:
+  #   build:
+  #     context: .
+  #   container_name: shelfarr
+  #   restart: unless-stopped
+  #   logging: *default-logging
+  #   ports:
+  #     - "5056:80"
+  #   volumes:
+  #     # Persist SQLite databases, Active Storage files, and logs
+  #     - $LOCALDOCKER_DIR/shelfarr:/rails/storage
+  #     # Output directories - audiobooks and ebooks libraries
+  #     - $DATA_DIR/media/books/audiobooks:/audiobooks
+  #     - $DATA_DIR/media/ebooks:/ebooks
+  #     # SABnzbd completed downloads folder for post-processing
+  #     - $DATA_DIR/downloads/Torrents/books:/downloads
+  #     # Completed Audible backups from the optional Libation companion
+  #     - $LOCALDOCKER_DIR/shelfarr/libation:/imports/libation:ro
+  #     # Read-only bridge credential generated by the companion
+  #     - $LOCALDOCKER_DIR/shelfarr/libation/libation_control:/run/shelfarr-libation:ro
+  #   environment:
+  #     - PUID=$PUID
+  #     - PGID=$PGID
+  #     - TZ=$TZ
+  #     - RAILS_ENV=production
+  #     - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+  #     - SOLID_QUEUE_IN_PUMA=1
+  #     - SHELFARR_LIBATION_URL=http://shelfarr-libation:8080
+  #     - SHELFARR_LIBATION_TOKEN_FILE=/run/shelfarr-libation/token
+  #     - SHELFARR_LIBATION_IMPORT_ROOT=/imports/libation
 
-      - CHOWN_ON_START=${CHOWN_ON_START:-auto}
-      # Alternatively, if you're using credentials.yml.enc, set SECRET_KEY_BASE directly:
-      # - SECRET_KEY_BASE=${SECRET_KEY_BASE}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/up"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  #     - CHOWN_ON_START=${CHOWN_ON_START:-auto}
+  #     # Alternatively, if you're using credentials.yml.enc, set SECRET_KEY_BASE directly:
+  #     # - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:80/up"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
 
     # 1. Define the shared custom network here
 networks:
