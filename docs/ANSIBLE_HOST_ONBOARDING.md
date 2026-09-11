@@ -17,7 +17,8 @@ on, not just re-derived from memory each time.
       control node to see what it currently has.
 
 ## 1. Prerequisites on the new host itself
-
+- [ ] ensure ip address set.  this should match inventory.ini
+- [ ] ensure DNS resolver works - ping -c 2 google.com should succeed
 - [ ] Host is reachable on a static/known IP on the LAN.
 - [ ] `python3` is present — Ansible needs it on the managed node:
       `which python3` (install with `apt install -y python3` if missing).
@@ -33,6 +34,13 @@ on, not just re-derived from memory each time.
 The private key lives on the **control node**, not on any managed host. You
 are not copying keys between VMs — you're adding your one existing public
 key to a new host's `authorized_keys`.
+### after reinstall ssh key refresh
+Remove the old host key
+On your Ansible control node (WSL/Linux), run `ssh-keygen -R 192.168.69.240` (swap in whatever IP you're targeting). This removes just that one host's stale entry from `~/.ssh/known_hosts` without touching entries for other hosts.
+
+Reconnect once manually to accept the new key
+Run `ssh -i ~/.ssh/id_ed25519 root@192.168.69.240` directly once. You'll get a fresh 'authenticity of host can't be established' prompt — type `yes` to accept and cache the new host key. Doing this manually first (rather than letting Ansible hit it) lets you actually see and confirm the new fingerprint interactively.
+
 
 - [ ] On the control node: confirm the keypair referenced in
       `inventory.ini` (`ansible_ssh_private_key_file=~/.ssh/id_ed25519`)
@@ -44,19 +52,25 @@ key to a new host's `authorized_keys`.
     Console tab in the web UI.
   - Proxmox VM: console tab, or whatever initial access method was used to
     set it up.
-- [ ] On the new host: `mkdir -p ~/.ssh && chmod 700 ~/.ssh`, then append
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICos7+OND1CToCC9gQURjPRzjJQp11Z/zNOLwQSH3rq7 ansible-control-lxc
+
+- [ ] **Shortcut**: if the host still accepts a root password (common right
+      after Proxmox creates it), skip the manual copy/paste entirely —
+      `ssh-copy-id -i ~/.ssh/id_ed25519.pub root@<host-ip>` from the control 
+      node does steps below in one command.
+- [ ] **Longcut**: On the new host: `mkdir -p ~/.ssh && chmod 700 ~/.ssh`, then append
       the public key line to `~/.ssh/authorized_keys` and
       `chmod 600 ~/.ssh/authorized_keys`.
 - [ ] Confirm `/etc/ssh/sshd_config` allows key-based root login:
       `PermitRootLogin yes` or `prohibit-password` (either is fine — only
       `no` blocks it), and `PubkeyAuthentication yes`. Restart with
       `systemctl restart ssh` if you changed anything.
-- [ ] **Shortcut**: if the host still accepts a root password (common right
-      after Proxmox creates it), skip the manual copy/paste entirely —
-      `ssh-copy-id -i ~/.ssh/id_ed25519.pub root@<host-ip>` from the control
-      node does steps above in one command.
+      - 
 - [ ] Test from the control node: `ssh -i ~/.ssh/id_ed25519 root@<host-ip>`
       — should drop straight into a shell, no password prompt.
+
+validate ansible can connect - 
+ansible vm2-services -i inventory.ini -m ping --ask-vault-pass
 
 ## 3. Inventory
 

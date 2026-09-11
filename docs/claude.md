@@ -23,10 +23,13 @@ Leveraging Ansible to consistently build that infrastructure.
   control-node functionality aren't supported on native Windows. Git pushes of
   already-encrypted files can happen from anywhere (Windows or WSL) since the
   file is opaque ciphertext once encrypted.
-  
-## `playbook.yml` — what each part does and why
 
-### Play 1: `Standardize and Install Docker Engine` (hosts: all)
+# VM installation
+see VM_CLEAN_REBUILD_CHECKLIST.md for initial installation procedure. 
+
+# `playbook.yml` — what each part does and why
+
+## Play 1: `Standardize and Install Docker Engine` (hosts: all)
 
 1. **Disable IPv6** via `ansible.posix.sysctl`, writing
    `/etc/sysctl.d/99-disable-ipv6.conf`. Root cause: on `vm1-dmz`, IPv6 routing
@@ -54,7 +57,7 @@ Leveraging Ansible to consistently build that infrastructure.
 5. Installs `docker-ce`, `docker-ce-cli`, `containerd.io`,
    `docker-buildx-plugin`, `docker-compose-plugin`.
 
-### Play 2: `Configure Core VM Specialized Storage` (hosts: cores)
+## Play 2: `Configure Core VM Specialized Storage` (hosts: cores)
 
 1. Installs `cifs-utils`.
 2. **CIFS credentials file** (`/etc/cifs-credentials`, mode `0600`, root-owned)
@@ -138,7 +141,7 @@ your editor, encrypts on save — plaintext never touches disk unencrypted);
 playbooks with `--ask-vault-pass` or `--vault-password-file`. The `.example`
 version (no real secrets) is fine to keep in the repo as a template.
 
-## Known issue still to fix in the repo
+# Known issue still to fix in the repo
 
 `docker/compose/vm2_services/stashstack/docker-compose.yml` has a **live JWT
 API key hardcoded in plaintext** in the `stash-vr` service's `STASH_API_KEY`
@@ -147,7 +150,7 @@ Fix: change that line to `STASH_API_KEY: "${STASH_API_KEY}"` and generate a
 fresh key in Stash after deployment — do not reuse the old one.
 ** This is corrected as a secret in the vault.yml now **
 
-## Status: DONE so far
+# Status: DONE so far
 
 - ✅ Ansible bootstrap playbook (Docker install, IPv6 disabled) runs
   successfully on both VMs
@@ -171,7 +174,7 @@ fresh key in Stash after deployment — do not reuse the old one.
   `AUTHENTIK_OIDC_SETUP.md`
 
 
-## Status: NOT DONE yet — next steps
+# Status: NOT DONE yet — next steps
 
 
 3. **Get the compose files onto each VM** — decide between `ansible.builtin.
@@ -196,8 +199,11 @@ We need to do this all correctly to make setup of other services much easier as 
 - setup shelfarr service to feed into cwa
 - install portainer on docker hosts
 - setup ai llm to analyze nutritrace pictures for meal and ingredient detection.
+- setup uptime kuma or similar dashboard for monitoring kopia backups and service uptime.  Should be separate lxc for monitoring, maybe in the infrastructure compose stack
+- create restore playbook to make rebuilding and restoring vm services.
+- setup bitwarden to feed vault password to ansible
 
-## Questions and future tasks
+# Questions and future tasks
 1. ~~Can we point my arrStack and StashStack to an authentik server which
    then authorizes first and then proxies to the right service?~~
    **Answered**: yes, via Authentik's Forward Auth (Proxy Provider) —
@@ -213,13 +219,28 @@ We need to do this all correctly to make setup of other services much easier as 
 AUTHENTIK_OIDC_SETUP.md — Authentik LXC deployment + NutriTrace OIDC integration, including the full troubleshooting chain (redirect URI, issuer scheme, provider-ID mismatch, account linking).
 
 # Hardware in homelab
-## MIni pc 
-Beeink mini pc S13 - https://www.amazon.com/dp/B0DP2SGVVY?ref_=ppx_hzsearch_conn_dt_b_fed_asin_title_2&th=1
-16gb ram
-512gb ssd
-zigbee usb dongle
+## Mini pc hardware 
+- **Host**: Beelink Mini S13 Mini PC
+- **CPU/iGPU**: Intel Twin Lake N150 (up to 3.6GHz, successor to N100),
+  integrated UHD Graphics (Quick Sync Video capable — H.264/HEVC/AV1
+  encode+decode)
+- **RAM**: 16GB DDR4
+- **Storage**: 500GB M.2 SSD
+- **Networking**: WiFi 6, BT 5.2
+- **Hypervisor**: Proxmox VE
+- **Guests on this host**: `vm2-services` (Debian 13 VM, runs the media/app
+  Docker stacks — see main `claude.md`), plus several existing LXCs that also
+  need GPU access for their own transcoding workloads
+
+ https://www.amazon.com/dp/B0DP2SGVVY?ref_=ppx_hzsearch_conn_dt_b_fed_asin_title_2&th=1
+installed zigbee usb dongle
 20tb external usb hdd
 terramaster D4-320 DAS enclosure, 4 20tb hdd
+
+## pve host cpu perfomance
+I set cpu governor to powersave 
+use script to change -  
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/scaling-governor.sh)"
 
 ## Router
 TP-LInk x75 pro mesh wifi 

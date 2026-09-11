@@ -7,19 +7,7 @@ Proxmox configuration** — it lives outside the `homelab_iac` Ansible
 inventory/playbook since Proxmox itself isn't a managed node, so it's
 documented here instead so the reasoning and steps aren't lost.
 
-## Hardware
 
-- **Host**: Beelink Mini S13 Mini PC
-- **CPU/iGPU**: Intel Twin Lake N150 (up to 3.6GHz, successor to N100),
-  integrated UHD Graphics (Quick Sync Video capable — H.264/HEVC/AV1
-  encode+decode)
-- **RAM**: 16GB DDR4
-- **Storage**: 500GB M.2 SSD
-- **Networking**: WiFi 6, BT 5.2
-- **Hypervisor**: Proxmox VE
-- **Guests on this host**: `vm2-services` (Debian 13 VM, runs the media/app
-  Docker stacks — see main `claude.md`), plus several existing LXCs that also
-  need GPU access for their own transcoding workloads
 
 ## Why we needed to share the GPU at all
 
@@ -72,6 +60,7 @@ their exact kernel/firmware combo. Treat the verification step below as a
 hard checkpoint — if VFs don't appear, stop and reassess rather than
 continuing to build on top of a broken assumption.
 
+Slices dynamically adjust gpu time, however share gpu ram statically.  if you have 4gb ram and 4 slices, each slice will only support 1gb ram each.  Don't make the max and hope for the best performance.  Scale the slices to your current needs.
 ---
 
 ## Setup steps
@@ -84,16 +73,32 @@ continuing to build on top of a broken assumption.
    Secure Boot will silently refuse to load it.
 
 ### 1. Install build tools and the SR-IOV driver on the Proxmox host
+To find out exactly which bootloader your Proxmox installation is using, run this command in your host 
+```bash
+[ -d /sys/firmware/efi ] && [ -d /pve-boot-esm ] || [ -f /etc/kernel/cmdline ] && echo "systemd-boot" || echo "GRUB"
+** I was seeing GRUB as a result of this.
 
 ```bash
 apt update
 apt install -y dkms build-essential pve-headers-$(uname -r) sysfsutils git
 
-cd /opt
+``` this package assume install into /usr/src
+cd /usr/src
 git clone https://github.com/strongtz/i915-sriov-dkms.git
+
+``` Enter the folder
 cd i915-sriov-dkms
-dkms add .
-dkms install -m i915-sriov-dkms -v $(cat VERSION) -k $(uname -r) --force
+
+``` Read the version string inside the repository configuration to register it with DKMS
+DKMS_VER=$(grep "PACKAGE_VERSION=" dkms.conf | cut -d'"' -f2)
+``` Move the code into the proper system DKMS directory format
+cd ..
+mv i915-sriov-dkms i915-${DKMS_VER}
+
+``` Tell DKMS to track, build, and load the new driver
+dkms add -m i915 -v ${DKMS_VER}
+dkms build -m i915 -v ${DKMS_VER}
+dkms install -m i915 -v ${DKMS_VER}
 ```
 
 If `dkms install` fails looking for headers, confirm `pve-headers-$(uname -r)`
@@ -108,6 +113,11 @@ Edit `/etc/default/grub`, add to `GRUB_CMDLINE_LINUX_DEFAULT`:
 intel_iommu=on i915.enable_guc=3 i915.max_vfs=7
 ```
 
+** I set this to max_vfs=1 for now as I have only 1 vm that needs transcode.  This can be increased in the future.
+
+(`max_vfs=7` is the ceiling most guides use for this GPU generation — we
+only need one VF in practice, since `vm2-services` is the sole VM consumer.)
+
 Then:
 
 ```bash
@@ -115,9 +125,6 @@ update-grub
 update-initramfs -u
 reboot
 ```
-
-(`max_vfs=7` is the ceiling most guides use for this GPU generation — we
-only need one VF in practice, since `vm2-services` is the sole VM consumer.)
 
 ### 3. Verify VFs were created — CHECKPOINT
 
@@ -147,12 +154,73 @@ Optional persistence belt-and-suspenders alongside the GRUB param:
 echo "devices/pci0000:00/0000:00:02.0/sriov_numvfs = 7" > /etc/sysfs.conf
 ```
 
-### 4. Assign one VF to `vm2-services`
+### 3b - n150 consumer igpu problem
+The repository contains an automation file called i915-set-sriov-numvfs.conf. This file creates a system background daemon (systemd template) that looks at your GRUB configuration, calculates how many slices you want, and automatically handles the echo command for you.To set up this single-point-of-control automation, run these commands in your Proxmox shell:
+Why GRUB isn't enough for Intel Consumer iGPUsOn enterprise server GPUs (like an NVIDIA Tesla or Intel Flex card), the driver natively reads the GRUB command (i915.max_vfs=1) and automatically instantiates the virtual slices during boot.However, because the Intel N150 is a consumer desktop/mobile chip, Intel intentionally omitted the automation code that triggers the slices at boot.grub / i915-sriov.conf: These files simply reserve the hardware resources in the system kernel driver loop. They tell the driver: "Get ready, we might want to split this card into 1 slice later."sysfs.conf: This is the file that actually presses the start button. It executes the literal hardware command (echo 1 > .../sriov_numvfs) the moment Proxmox finishes loading. Without this file, the driver stays in standby mode, and your slices are never created.
 
-Proxmox web UI → `vm2-services` → **Hardware** → **Add** → **PCI Device** →
-select a VF address (e.g. `0000:00:02.1`) — **not** the physical GPU
-(`00:02.0`). Leave "All Functions" unchecked. No ROM-bar / primary-GPU flags
-needed since this isn't display passthrough, just a compute device.
+``` 1. Copy the repository's automation script into your system services folder
+cp /usr/src/i915-sriov-dkms-2026.08.12.1/i915-set-sriov-numvfs.conf /etc/tmpfiles.d/i915-set-sriov-numvfs.conf
+
+nano /etc/tmpfiles.d/i915-set-sriov-numvfs.conf
+Scroll to the bottom of the file. You will see a line that looks like this: 
+  #w /sys/devices/pci0000:00/0000:00:02.0/sriov_numvfs - - - - 1
+Uncomment it by deleting the # symbol at the very front of the line.Ensure the trailing number matches the slice count you want (it defaults to 1)
+
+``` 2. Reload the system services manager to recognize it
+systemctl daemon-reload
+
+``` 3. Enable the service so it runs automatically every time Proxmox boots
+systemctl enable i915-set-sriov-numvfs.service
+
+From this point forward, if you ever want to increase your pool from 1 slice to 3 slices in the future:
+Open your /etc/tmpfiles.d/i915-set-sriov-numvfs.conf 
+ swap the trailing 1 to a 3.
+Open your /etc/default/grub file 
+  swap max_vfs=1 to max_vfs=3.
+  Run  update-grub
+  run reboot
+
+### 4a. Resource mapping
+Resource mapping abstract away the physical resources into a pool.  as long as the pool has resources to assign you can associate the pool to many VMs.  If your pool has 3 slices, you can have 3 vm using the pool.
+Step 1: Create the PCI Resource Pool in ProxmoxOpen your browser and log into your Proxmox Web UI.
+Click on Datacenter at the very top of the left-hand menu tree.
+Select Resource Mappings (located under the Options section).
+Click Add at the top of the PCI Devices section.
+Fill out the configuration window exactly like this:
+  Name: N150-QSV-Pool (No spaces allowed here).
+  Description: Intel N150 iGPU SR-IOV Transcode Slices
+  Look for the Devices table inside that same window and click Add.
+    In the Device dropdown menu, look for and select your virtual function slice: 0000:00:02.1 (Do not select .0 variant, this is the main gpu)
+    (It will likely be labeled Intel Corporation Alder Lake-N [Intel Graphics]).
+    Click Create at the bottom to save the pool.
+
+
+### 4b. Assign one VF to `vm2-services`
+
+Step 2: Add the Mapped Device to your VM
+Now we will link that pool to your target transcoding Virtual Machine.
+In the Proxmox left menu, click on your target VM (ensure the VM is currently turned off).
+Go to the Hardware tab.
+Click the Add dropdown button at the top and select PCI Device.
+In the window that pops up, change the selection bubble at the top from Raw Device to Mapped Device.
+Click the Mapped Device dropdown menu and select the pool we just made: N150-QSV-Pool.
+Crucial Settings to Check:
+  Check the box for PCI-Express.
+  Leave All Functions unchecked.
+  Leave ROM-Bar checked.
+  Click Add.
+
+#### PCI-Express disabled
+Why it is grayed out:
+Your VM is likely configured with the older legacy i440fx hardware machine type, which simulates an old 1990s desktop motherboard that only has standard PCI slots (no PCI-Express). To enable the PCIe checkbox, your VM must be running the modern q35 chipset type. 
+How to fix it and enable the checkbox:
+Keep the VM turned off.
+In the Proxmox Web UI, click on your VM, then go to the Hardware tab.
+Look for the row named Machine (it probably says pc-i440fx-...).
+Select it, click Edit, and change it to q35 (e.g., q35-run-latest or q35-8.x).
+ Click OK.
+ Note: If you change this, your VM should ideally be using OVMF (UEFI) for its BIOS instead of SeaBIOS. 
+ Once the machine type is upgraded to q35, go back into Add -> PCI Device -> Mapped Device, choose your pool, and the PCI-Express checkbox will be fully enabled and clickable! Check it and click Add
 
 ### 5. Existing LXCs — no changes
 
