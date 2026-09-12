@@ -259,3 +259,148 @@ no way to automate this via Ansible/compose.
   "Known risk" above), fallback options to revisit: software transcoding
   only (accept the CPU cost), or moving Jellyfin's GPU needs to LXC-only
   access patterns if the VM requirement can be relaxed.
+
+
+
+
+* *******************  These may be different approach **********************
+# Intel N150 iGPU SR-IOV Slicing Guide for Proxmox VE 8/9
+
+This guide outlines the complete configuration required to share an **Intel Processor N150 (Alder Lake-N / Twin Lake)** integrated GPU across **multiple Virtual Machines (VMs)** simultaneously using **SR-IOV**, while preserving native hardware transcoding access for **Linux Containers (LXCs)** like Jellyfin.
+
+---
+
+## 1. Proxmox Host Configuration
+
+### Step 1: Core Prerequisites & GRUB Setup
+The Intel N150 requires explicit boot loader flags to enable IOMMU virtualization and expose virtual functions. It also requires forcing a **headless boot** (`video=efifb:off`) to prevent host kernel panics when a VM intercepts a graphics slice.
+
+1. Open the host GRUB configuration file:
+   ```bash
+   nano /etc/default/grub
+   ```
+2. Modify the line `GRUB_CMDLINE_LINUX_DEFAULT` to match this string precisely:
+   ```text
+   GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt i915.enable_guc=3 i915.max_vfs=2 module_blacklist=xe video=efifb:off"
+   ```
+3. Update the boot records:
+   ```bash
+   update-grub
+   ```
+
+### Step 2: Build & Install the SR-IOV Kernel Module via DKMS
+Because native Intel consumer iGPU SR-IOV drivers are absent from upstream Linux kernels, compile the community backport module:
+
+1. Install development dependencies:
+   ```bash
+   apt update && apt install -y pve-headers sysfsutils git dkms build-essential
+   ```
+2. Clone the official repository directly into the system source tree:
+   ```bash
+   git clone https://github.com/strongtz/i915-sriov-dkms.git /usr/src/i915-sriov-dkms-2026.08.12.1
+   ```
+3. Register, build, and install the module entry inside the DKMS tree:
+   ```bash
+   cd /usr/src/i915-sriov-dkms-2026.08.12.1
+   dkms add .
+   dkms build -m i915-sriov-dkms -v 2026.08.12.1
+   dkms install -m i915-sriov-dkms -v 2026.08.12.1
+   ```
+4. Verify deployment (`dkms status` should output `installed`).
+
+### Step 3: Automate Virtual Function Activation via systemd-tmpfiles
+Intel consumer chips require an explicit write to sysfs to physically spawn slices right after booting finishes.
+
+1. Copy the repository's configuration profile to the active system folder:
+   ```bash
+   cp /usr/src/i915-sriov-dkms-2026.08.12.1/i915-set-sriov-numvfs.conf /etc/tmpfiles.d/i915-set-sriov-numvfs.conf
+   ```
+2. Open the file:
+   ```bash
+   nano /etc/tmpfiles.d/i915-set-sriov-numvfs.conf
+   ```
+3. Uncomment or add the creation string pointing to your intended target value (`2` slices):
+   ```text
+   w /sys/devices/pci0000:00/0000:00:02.0/sriov_numvfs - - - - 2
+   ```
+4. **Reboot the Proxmox Host** (`reboot`). Note that your physical monitor will go blank mid-boot; this confirms the headless setup is functional.
+
+### Step 4: Verify Your Slices
+Once rebooted, inspect the local PCIe hardware table layout:
+```bash
+lspci | grep -E "VGA|Display"
+```
+You must see three records:
+* `00:02.0` — Physical Function (PF) / Master Host Card
+* `00:02.1` — Virtual Function (VF) Slice 1
+* `00:02.2` — Virtual Function (VF) Slice 2
+
+---
+
+## 2. Proxmox Web UI & Resource Mapping
+
+To avoid hardcoding volatile hardware physical addresses directly inside VMs, use a virtual abstraction pool.
+
+1. Go to **Datacenter** -> **Resource Mappings** -> **PCI Devices** and click **Add**.
+2. **Name:** `N150-VM-Slices`
+3. Under the **Devices** list, add both **`0000:00:02.1`** and **`0000:00:02.2`**. Do **NOT** add `.0`.
+4. Click **Create**.
+
+---
+
+## 3. Virtual Machine (VM) Configuration
+
+For any target VM intended to use a slice (e.g., Tdarr or a media server VM):
+
+### Hardware Settings Alignment
+* **Machine:** Must be set to **`q35`** (Standard `i440fx` does not support PCIe mapping address space requirements).
+* **BIOS:** Must be set to **`OVMF (UEFI)`** (SeaBIOS lacks large 64-bit BAR addressing room and causes Code 10/43 driver failures).
+* **EFI Disk:** You must add an **EFI Disk** to store the UEFI parameters permanently.
+* **vIOMMU:** Leave as **`Default (None)`**.
+* **Display:** Change to **`none`** (Headless). Leaving it as default forces the Proxmox Web UI to attempt a VNC canvas capture of the physical slice, resulting in browser interface lockups and endless console spin wheels.
+
+### Adding the Device
+1. Click **Add** -> **PCI Device**.
+2. Select **Mapped Device** and pick **`N150-VM-Slices`**.
+3. **Check the box** for **PCI-Express**.
+4. Save and start. Manage the VM externally via network layers (SSH/RDP).
+
+---
+
+## 4. Linux Container (LXC) Configuration
+
+To safely preserve native, shared iGPU hardware transcoding for unprivileged application containers (like Jellyfin) alongside active VM slices:
+
+### Step 1: Mapping the Master Hardware via GUI
+1. Select your **LXC Container** -> **Resources** tab.
+2. Click **Add** -> **Device Passthrough**.
+3. Set the **Path** to: `/dev/dri/renderD128`
+4. Leave the Mode as `0666` and save.
+
+### Step 2: Harmonizing Security Group IDs
+Because the host SR-IOV module driver shifts GID tracking, you must explicitly match the file permissions inside the container configuration file.
+
+1. On the **Proxmox Host shell**, inspect your local rendering group number:
+   ```bash
+   getent group render | cut -d: -f3
+   ```
+   *(For modern Proxmox nodes, this value is usually **`993`**).*
+2. Open the raw configuration layout file for your target container (e.g., ID 100):
+   ```bash
+   nano /etc/pve/lxc/100.conf
+   ```
+3. Locate the automatically generated passthrough reference at the bottom of the file and append your exact GID number:
+   ```text
+   dev0: /dev/dri/renderD128,gid=993,uid=0,mode=0660
+   ```
+   *(Ensure any legacy line pointing to `/dev/dri/card0` is completely **deleted** out of the file to prevent LXC boot errors).*
+4. Save and exit.
+
+### Step 3: Application Level Alignment (Jellyfin UI)
+Because an unprivileged container cannot pass native system display context parameters across a secure kernel border, picking standard Intel QuickSync (QSV) inside Jellyfin will return an `Error setting child device handle: -17` crash loop.
+
+1. Open your **Jellyfin Dashboard** -> **Playback**.
+2. Set **Hardware Acceleration** to **`VAAPI`**.
+3. Set **VAAPI Device** path field explicitly to: `/dev/dri/renderD128`
+4. **Check the boxes** for **Enable Intel Low-Power H.264 hardware encoder** and **HEVC**. Alder Lake-N / Twin Lake architectures require low-power execution loops to run properly over VAAPI.
+5. Click **Save**.
