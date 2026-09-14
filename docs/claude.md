@@ -200,8 +200,10 @@ We need to do this all correctly to make setup of other services much easier as 
 - install portainer on docker hosts
 - setup ai llm to analyze nutritrace pictures for meal and ingredient detection.
 - setup uptime kuma or similar dashboard for monitoring kopia backups and service uptime.  Should be separate lxc for monitoring, maybe in the infrastructure compose stack
+- setup homarr dashboard
 - create restore playbook to make rebuilding and restoring vm services.
 - setup bitwarden to feed vault password to ansible
+- setup docker container schedules.  example - jellyfin could probably be shut down between 1am to 7am or trailarr isn't needed for a long time.  Will this save resources on the host or is it more troublesome than it's worth?
 
 # Questions and future tasks
 1. ~~Can we point my arrStack and StashStack to an authentik server which
@@ -220,6 +222,7 @@ AUTHENTIK_OIDC_SETUP.md — Authentik LXC deployment + NutriTrace OIDC integrati
 
 # Hardware in homelab
 ## Mini pc hardware 
+- https://www.amazon.com/dp/B0DP2SGVVY
 - **Host**: Beelink Mini S13 Mini PC
 - **CPU/iGPU**: Intel Twin Lake N150 (up to 3.6GHz, successor to N100),
   integrated UHD Graphics (Quick Sync Video capable — H.264/HEVC/AV1
@@ -232,10 +235,10 @@ AUTHENTIK_OIDC_SETUP.md — Authentik LXC deployment + NutriTrace OIDC integrati
   Docker stacks — see main `claude.md`), plus several existing LXCs that also
   need GPU access for their own transcoding workloads
 
- https://www.amazon.com/dp/B0DP2SGVVY?ref_=ppx_hzsearch_conn_dt_b_fed_asin_title_2&th=1
-installed zigbee usb dongle
-20tb external usb hdd
-terramaster D4-320 DAS enclosure, 4 20tb hdd
+- zigbee usb dongle - sonoff ZBDongle-P (zigbee connection 3.0)  SONOFF ZBDongle-P Smart Zigbee Bridge USB Dongle Plus Stick Universal Gateway US
+
+- 20tb external usb hdd
+- terramaster D4-320 DAS enclosure, 4 20tb hdd
 
 ## pve host cpu perfomance
 I set cpu governor to powersave 
