@@ -23,13 +23,23 @@ again next time.
   2025.12.5 and 2026.2.3. Worth confirming the deployed version is patched,
   especially since this instance is internet-facing.
 
+**Scope note (revised):** Authentik's role in this homelab has narrowed
+since this doc was first written. It's no longer intended as a universal
+front door for every internet-facing service — see
+`EXPOSURE_ARCHITECTURE.md` for the full reasoning. In short: routing
+everything through one auth gate means a single Authentik bug becomes a
+skeleton key for the whole homelab. Authentik now covers specifically the
+apps with native OIDC support and a real reason to be reachable from the
+internet (NutriTrace today, Jellyfin planned) — not arr stack or Stash,
+which now use different exposure paths entirely (Cloudflare Tunnel and
+LAN-only, respectively).
+
 ## Two integration patterns going forward
 
 - **Native OIDC support** (NutriTrace today) → standard OAuth2/OIDC
   Provider + Application in Authentik.
 - **No native OIDC support** (arr stack, Stash, etc.) → will need
-  **Forward Auth (Proxy Provider)** instead — not yet built, see Open
-  Questions below.
+  **Forward Auth (Proxy Provider)** instead 
 
 ## NutriTrace OIDC — working configuration
 
@@ -122,18 +132,32 @@ as of this session.
 
 ## Open questions / next steps
 
-- Forward Auth (Proxy Provider) integration for arr stack and Stash — next
-  target, but a different mechanism than what's documented above (no
-  native OIDC support in those apps).
+- ~~Forward Auth (Proxy Provider) integration for arr stack and Stash~~ —
+  **superseded.** Neither service routes through Authentik under the
+  revised exposure architecture (see `EXPOSURE_ARCHITECTURE.md`): arr
+  stack is moving to a Cloudflare Zero Trust Tunnel with Cloudflare Access
+  handling auth at the edge instead, and Stash is staying LAN-only for
+  now with no internet exposure at all. No Forward Auth work needed for
+  either unless that changes.
 - LAN bypass for family members on home wifi without Authentik auth —
-  leaning toward routing LAN traffic to `vm2-services` directly via
+  still leaning toward routing LAN traffic to `vm2-services` directly via
   internal DNS (AdGuard) rather than through the auth-gated NPM path,
   instead of an IP-based Authentik policy — simpler and lower-risk given
-  the existing DMZ/internal split.
-
+  the existing DMZ/internal split. Unchanged by the exposure-architecture
+  revision.
+- Jellyfin's exposure path stays DMZ VM → NPM → Authentik as originally
+  planned — worth confirming this explicitly rather than by default,
+  since it's now the single most internet-exposed app behind Authentik.
+- Whether Cloudflare Access (now fronting the arr stack) should federate
+  to Authentik as its identity provider, so there's still one source of
+  truth for "who's allowed in" across both exposure paths, or whether
+  Cloudflare Access's own login is sufficient on its own for that stack.
+  See `EXPOSURE_ARCHITECTURE.md` for the options under consideration —
+  not decided yet.
 - Consider whether other apps in the Trace family (CookTrace, LiftTrace)
   will need the same `OIDC_REDIRECT_URIS` treatment if/when deployed —
-  same upstream codebase pattern likely applies.
+  same upstream codebase pattern likely applies. Unchanged.
+
 
 # Authentik LXC vs VM-services deploy
 Keep it as its own LXC — this is actually the same reasoning you already applied to the Kopia server, and it applies even more strongly to Authentik.
