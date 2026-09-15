@@ -24,6 +24,32 @@ Leveraging Ansible to consistently build that infrastructure.
   already-encrypted files can happen from anywhere (Windows or WSL) since the
   file is opaque ciphertext once encrypted.
 
+**Exposure model revised — see `EXPOSURE_ARCHITECTURE.md` for full
+reasoning.** Not every service routes through the DMZ VM + Authentik
+anymore. Current split:
+
+- **DMZ VM (`vm1-dmz`) → NPM → Authentik**: Jellyfin (planned), NutriTrace
+  (confirmed working) — high-bandwidth or native-OIDC apps with a real
+  reason to sit behind this specific path.
+- **Cloudflare Zero Trust Tunnel** (already set up, outbound-only from
+  `vm2-services`, not yet Ansible/Git-managed): arr stack (Radarr, Sonarr,
+  Bazarr, Prowlarr, Jellyseerr, qBittorrent WebUI) — low-bandwidth
+  management UIs, auth handled by Cloudflare Access rather than Authentik.
+- **LAN-only, not exposed**: Stash (and `stash-vr`) — deliberately kept
+  internal for now, pending a specific reason to expose it.
+- **WireGuard** on `vm1-dmz` — still available for full-tunnel LAN access
+  when actually needed, separate from per-app proxying.
+
+Reasoning: routing every service through one auth gate (the original
+plan) means a single Authentik bug becomes a skeleton key for the whole
+homelab. Splitting by exposure type/bandwidth profile reduces the number
+of internet-facing paths in the first place, rather than trusting one gate
+to guard all of them.
+
+# Cloudflare
+I have a cloudflare account with zero trust application setup to talk to my cloudflare tunnel lxc. 
+- This lxc may be better moved to vm and controlled by ansible with kopia support.
+
 # VM installation
 see VM_CLEAN_REBUILD_CHECKLIST.md for initial installation procedure. 
 
