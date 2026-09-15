@@ -268,7 +268,25 @@ qm create 9000 --name debian13-template --memory 2048 \
   --net0 virtio,bridge=vmbr0 --bios ovmf --machine q35 --efidisk0 local-lvm:0
 
 qm importdisk 9000 debian-13-generic-amd64.qcow2 local-lvm
-qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-9000-disk-0
+```
+
+**Check which disk index was actually assigned before attaching it —
+don't assume it's `disk-0`.** The `--efidisk0 local-lvm:0` flag above
+already claims `vm-9000-disk-0` for the EFI disk, so the OS disk
+`qm importdisk` just created lands on the *next* available index (commonly
+`vm-9000-disk-1`), not `disk-0`. Attaching `scsi0` to the same index the
+EFI disk already owns causes a silent LV name collision — it won't error
+immediately, but `qm template` and any later `qm clone` will fail with
+`no such logical volume`, since the shared volume gets renamed once and
+the second reference to it goes stale. Confirm the real name instead of
+guessing:
+```bash
+qm config 9000 | grep unused
+```
+This prints something like `unused0: local-lvm:vm-9000-disk-1` — use that
+**exact** volume string in the next command, not a hardcoded index:
+```bash
+qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-9000-disk-1
 qm resize 9000 scsi0 +20G   # cloud images default small; add headroom
 
 qm set 9000 --ide2 local-lvm:cloudinit
