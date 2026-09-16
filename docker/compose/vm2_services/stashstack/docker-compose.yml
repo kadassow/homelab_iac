@@ -3,6 +3,9 @@ x-logging: &default-logging
   options:
     max-size: "10m"
     max-file: "3"
+networks:
+  stash-network:
+    driver: bridge
 
 # APPNICENAME=Stash
 # APPDESCRIPTION=An organizer for your porn, written in Go
@@ -31,7 +34,6 @@ services:
       - PGID=$PGID
       - TZ=$TZ
     volumes:
-      - /etc/localtimePro:/etc/localtime:ro
       ## Adjust below paths (the left part) to your liking.
       ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
       
@@ -48,9 +50,14 @@ services:
       - $DOCKERCONFIGS_DIR/stashpro/blobs:/blobs
       ## Where to store generated content (screenshots,previews,transcodes,sprites)
       - $DOCKERCONFIGS_DIR/stashpro/generated:/generated
-      - /docker/configs/stashpro/scripts:/scripts
       - $DOCKERCONFIGS_DIR/stashpro/backups:/backups
-
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "108"   # render group GID — confirm with `getent group render` on vm3-internal
+    networks:
+      - stash-network
+   
 # APPNICENAME=StashPersonal
 # APPDESCRIPTION=An organizer for your porn, written in Go\
   stashPersonal:
@@ -74,7 +81,6 @@ services:
       - PGID=$PGID
       - TZ=$TZ
     volumes:
-      - /etc/localtimePersonal:/etc/localtime:ro
       ## Adjust below paths (the left part) to your liking.
       ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
       
@@ -94,7 +100,13 @@ services:
       - $DOCKERCONFIGS_DIR/stashpersonal/backups:/backups
 
       - /docker/configs/stashpersonal/scripts:/scripts
-
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "108"   # render group GID — confirm with `getent group render` on vm3-internal
+   
+    networks:
+      - stash-network
 
 # APPNICENAME=StashAppProVR
 # APPDESCRIPTION=VR Viewer for your VR porn to work with StashApp
@@ -124,6 +136,8 @@ services:
       #LOG_LEVEL: "debug"
 
       #FORCE_HTTPS: "true"
+    networks:
+      - stash-network
 
   stashpersonal-vr:
     image: ofl0w/stash-vr:latest
@@ -151,64 +165,73 @@ services:
       #LOG_LEVEL: "debug"
 
       #FORCE_HTTPS: "true"
+    networks:
+      - stash-network
       
   stashreel:
-      image: stashapp/stash:latest
-      container_name: stashAppReel
-      restart: unless-stopped
-      logging: *default-logging
-      ## the container's port must be the same with the STASH_PORT in the environment section
-      ports:
-        - "9003:9003"
-      ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
-      # network_mode: host
-      environment:
-        - STASH_STASH=/data/
-        - STASH_GENERATED=/generated/
-        - STASH_METADATA=/metadata/
-        - STASH_CACHE=/cache/
-        ## Adjust below to change default port (9999)
-        - STASH_PORT=9003
+    image: stashapp/stash:latest
+    container_name: stashAppReel
+    restart: unless-stopped
+    logging: *default-logging
+    ## the container's port must be the same with the STASH_PORT in the environment section
+    ports:
+      - "9003:9003"
+    ## If you intend to use stash's DLNA functionality uncomment the below network mode and comment out the above ports section
+    # network_mode: host
+    environment:
+      - STASH_STASH=/data/
+      - STASH_GENERATED=/generated/
+      - STASH_METADATA=/metadata/
+      - STASH_CACHE=/cache/
+      ## Adjust below to change default port (9999)
+      - STASH_PORT=9003
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+    volumes:
+      ## Adjust below paths (the left part) to your liking.
+      ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
+      
+      ## Keep configs, scrapers, and plugins here.
+      - $LOCALDOCKER_DIR/stashreel:/root/.stash
+      ## Point this at your collection.
+      - $DATA_DIR/reels:/data
+      ## This is where your stash's metadata lives
+      - $DOCKERCONFIGS_DIR/stashreel/metadata:/metadata
+      ## Any other cache content.
+      - $DOCKERCONFIGS_DIR/stashreel/cache:/cache
+      ## Where to store binary blob data (scene covers, images)
+      - $DOCKERCONFIGS_DIR/stashreel/blobs:/blobs
+      ## Where to store generated content (screenshots,previews,transcodes,sprites)
+      - $DOCKERCONFIGS_DIR/stashreel/generated:/generated
+      - $DOCKERCONFIGS_DIR/stashreel/backups:/backups
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "108"   # render group GID — confirm with `getent group render` on vm3-internal
+    networks:
+      - stash-network
+   
+
+  syncthingstash:
+    image: syncthing/syncthing
+    container_name: syncthingstash
+    hostname: my-syncthing
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
         - PUID=$PUID
         - PGID=$PGID
         - TZ=$TZ
-      volumes:
-        - /etc/localtimestage:/etc/localtime:ro
-        ## Adjust below paths (the left part) to your liking.
-        ## E.g. you can change ./config:/root/.stash to ./stash:/root/.stash
-        
-        ## Keep configs, scrapers, and plugins here.
-        - $LOCALDOCKER_DIR/stashreel:/root/.stash
-        ## Point this at your collection.
-        - $DATA_DIR/reels:/data
-        ## This is where your stash's metadata lives
-        - $DOCKERCONFIGS_DIR/stashreel/metadata:/metadata
-        ## Any other cache content.
-        - $DOCKERCONFIGS_DIR/stashreel/cache:/cache
-        ## Where to store binary blob data (scene covers, images)
-        - $DOCKERCONFIGS_DIR/stashreel/blobs:/blobs
-        ## Where to store generated content (screenshots,previews,transcodes,sprites)
-        - $DOCKERCONFIGS_DIR/stashreel/generated:/generated
-        - $DOCKERCONFIGS_DIR/stashreel/backups:/backups
-
-
-  syncthingstash:
-      image: syncthing/syncthing
-      container_name: syncthingstash
-      hostname: my-syncthing
-      restart: unless-stopped
-      logging: *default-logging
-      environment:
-          - PUID=$PUID
-          - PGID=$PGID
-          - TZ=$TZ
-      volumes:
-        - /$DATA_DIR/syncthing:/data
-      ports:
-        - 9384:8384 # Web UI
-        - 22000:22000/tcp # TCP file transfers
-        - 22000:22000/udp # QUIC file transfers
-        - 21027:21027/udp # Local discovery
+    volumes:
+      - /$DATA_DIR/syncthing:/data
+    ports:
+      - 9384:8384 # Web UI
+      - 22000:22000/tcp # TCP file transfers
+      - 22000:22000/udp # QUIC file transfers
+      - 21027:21027/udp # Local discovery
+    networks:
+      - stash-network
 
 
 # x-db-env: &db-env
