@@ -302,13 +302,34 @@ no need to set them again per VM.
 
 ## B2. Every New VM (Including This Rebuild)
 
+**`--sshkeys` needs a file that already exists on the Proxmox host itself
+— not a path on your Ansible control node.** `qm set --sshkeys` just opens
+whatever path you give it and reads its contents; `~/.ssh/id_ed25519.pub`
+only resolves correctly if you're running the command as a user who
+actually has that file, which on the Proxmox host shell (`root`) is
+**not** the same `~` as your control node. Get the public key onto the
+Proxmox host first:
+
 ```bash
-qm clone 9000 240 --name vm2-services --full
-qm set 240 --ipconfig0 ip=192.168.69.240/24,gw=192.168.69.1
-qm set 240 --nameserver 1.1.1.1
-qm set 240 --ciuser root
-qm set 240 --sshkeys ~/.ssh/id_ed25519.pub
-qm start 240
+# From your Ansible control node:
+scp ~/.ssh/id_ed25519.pub root@<proxmox-host-ip>:/root/id_ed25519.pub
+```
+(Or, if that same key already got you SSH access to the Proxmox host in
+the first place, it's already sitting in Proxmox's own
+`/root/.ssh/authorized_keys` — you can just copy it out into its own file
+instead of transferring anything new: `cp /root/.ssh/authorized_keys
+/root/id_ed25519.pub`, assuming only one key is in there.)
+
+Then, on the Proxmox host, set **every** value correctly before starting
+the VM — see B3 below for why this order matters:
+
+```bash
+qm clone 9000 241 --name vm2-services --full
+qm set 241 --ipconfig0 ip=192.168.69.241/24,gw=192.168.69.1
+qm set 241 --nameserver "192.168.69.106 192.168.69.6"
+qm set 241 --ciuser root
+qm set 241 --sshkeys /root/id_ed25519.pub
+qm start 241
 ```
 
 **If this IP was used by a previous install of this VM**, also clear the
@@ -330,7 +351,30 @@ This one command block replaces Sections 1 through 8 entirely:
 - No `sudo`-missing surprise (Section 5) — you're never dropped into a
   non-root user session in the first place.
 
-## B3. One Tradeoff to Know
+## B3. Cloud-Init Only Fully Applies on a Genuine First Boot
+
+Cloud-init tracks, inside the guest, whether it's already processed a
+given instance — and on every boot after the first, it skips re-applying
+most modules (including SSH key injection and user setup), even if you
+change the underlying `qm set` config afterward and reboot.
+
+**Practical consequence: if a VM already booted once with an incomplete or
+wrong cloud-init config (e.g. `--sshkeys` failed silently, per the gotcha
+above), simply fixing the command and rebooting will *not* retroactively
+apply it.** Cloud-init considers itself done, even though what it did the
+first time was wrong or incomplete.
+
+**If this happens, don't fight it — destroy and re-clone:**
+```bash
+qm stop 240
+qm destroy 240 --purge
+```
+Then re-clone and set every value correctly, in full, *before* the very
+first `qm start` — exactly as in B2 above. This guarantees cloud-init sees
+a complete, correct config on genuine first boot, with nothing stale to
+skip past.
+
+## B4. One Tradeoff to Know
 
 There's no interactive console fallback the way the ISO installer's local
 user/password setup gave you. Password auth is off from first boot, so
@@ -444,3 +488,5 @@ these by construction rather than requiring you to remember a fix.
 | Key offered but still `Permission denied (publickey,password)` | Public/private key mismatch — usually a wrapped/truncated copy-paste into `authorized_keys` |
 | `scp ... root@host` gets `Permission denied` even with the right password | Debian's `sshd` default is `PermitRootLogin prohibit-password` out of the box — root password auth never worked here regardless of Section 7. Route the key through a regular user account instead (Section 8) |
 | PuTTY "won't accept" a key that worked before a rebuild | Usually not the key at all — either root's `authorized_keys` isn't repopulated yet on the fresh VM (do Section 8 / cloud-init `--sshkeys` again), or PuTTY's own host-key cache (separate from Linux `known_hosts`) is showing a security-breach warning that got dismissed by reflex (see Appendix A) |
+| `qm set --sshkeys` fails with `No such file or directory` | The path given must exist **on the Proxmox host itself**, not your control node — `~` resolves differently on each. `scp` the `.pub` file to the Proxmox host first (Path B, Section B2) |
+| Cloud-init VM has no SSH access even after fixing `--sshkeys` and rebooting | Cloud-init only fully applies on a genuine first boot — it won't re-run after a failed/incomplete first attempt, even if the underlying `qm set` config is later corrected. Destroy and re-clone rather than patch in place (Path B, Section B3) |
