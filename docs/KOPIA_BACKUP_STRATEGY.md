@@ -247,3 +247,6 @@ so it isn't lost.
 - `sync-to` cadence for eventual B2 offsite — nightly is probably overkill
   for the pictures library; weekly may be sufficient given local snapshots
   already cover short-term recovery.
+  
+kopia snapshot restore kXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX /localdocker/configs \
+  --overwrite-files --overwrite-directories
