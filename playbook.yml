@@ -434,7 +434,41 @@
         project_src: "{{ stack_dir }}"
         state: present
 
+- name: Deploy monitoring stack to vm3-internal
+  hosts: docker_internal
+  vars:
+    stack_dir: /opt/stacks/monitoring
+  tasks:
+    - name: Create local subdirectory for Uptime Kuma data
+      ansible.builtin.file:
+        path: "{{ LOCALDOCKER_DIR }}/uptime-kuma/data"
+        state: directory
+        owner: "{{ PUID }}"
+        group: "{{ PGID }}"
+        mode: '0755'
 
+    - name: Ensure stack directory exists on the VM
+      ansible.builtin.file:
+        path: "{{ stack_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy monitoring compose file to the VM
+      ansible.builtin.copy:
+        src: docker/compose/vm3_internal/monitoring/docker-compose.yml
+        dest: "{{ stack_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Render monitoring .env file
+      ansible.builtin.template:
+        src: templates/monitoring.env.j2
+        dest: "{{ stack_dir }}/.env"
+        mode: '0600'
+
+    - name: Deploy monitoring stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ stack_dir }}"
+        state: present
 
 - name: Install and Configure Kopia Backup Server
   hosts: backup
