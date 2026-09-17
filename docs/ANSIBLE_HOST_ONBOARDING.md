@@ -153,7 +153,7 @@ for example) added to the vault alongside the existing `vault_vpn_*`,
 | Encrypt an existing plaintext file | `ansible-vault encrypt <file>` |
 | Change the vault password itself | `ansible-vault rekey group_vars/vault.yml` |
 | Run a playbook that needs vault secrets | `ansible-playbook playbook.yml -i inventory.ini --ask-vault-pass` (or `--vault-password-file <path>`) |
-
+| Run a playbook for specific vm that needs vault secrets | `ansible-playbook playbook.yml -i inventory.ini --limit vm2-services --ask-vault-pass` (or `--vault-password-file <path>`) |
 **Basic nano controls**, since it isn't the default for everyone:
 
 - Move around with arrow keys, no mouse needed.

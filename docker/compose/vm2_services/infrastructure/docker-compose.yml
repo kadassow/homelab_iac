@@ -1,1 +1,24 @@
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# APPNICENAME=UptimeKuma
+# APPDESCRIPTION=Self-hosted uptime/reachability monitoring with alerting
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "3001:3001"
+    environment:
+      - TZ=$TZ
+    volumes:
+      ## SQLite-backed — local disk only, same locking concern as every
+      ## other app in this homelab. Never point this at CIFS.
+      - $LOCALDOCKER_DIR/uptime-kuma/data:/app/data

@@ -52,8 +52,8 @@ items less reliable.
 
 | Model | Size | Notes |
 |---|---|---|
-| **Moondream2** | ~1.9B | Purpose-built for captioning/VQA, lightest CPU footprint — best starting point |
-| **Qwen2.5-VL:3b** | ~3B | Step up in quality, slower on CPU — try if Moondream's output feels too thin |
+| **Moondream2** | ~1.9B | Purpose-built for captioning/VQA, lightest CPU footprint — best starting point, 1.7GB hdd space needed |
+| **Qwen2.5-VL:3b** | ~3B | Step up in quality, slower on CPU — try if Moondream's output feels too thin, 1.9GB hdd space needed |
 
 Both are pullable directly via Ollama (`ollama pull moondream`,
 `ollama pull qwen2.5vl:3b`).
