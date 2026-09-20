@@ -264,7 +264,10 @@
         - "{{ LOCALDOCKER_DIR }}/calibre-web-automated/config"
         - "{{ LOCALDOCKER_DIR }}/nutritrace/db"
         - "{{ DOCKERCONFIGS_DIR }}/jellyfin/metadata"
-
+        - "{{ LOCALDOCKER_DIR }}/threadfin/conf"
+        - "{{ LOCALCACHE_DIR }}/threadfin/tmp"
+        - "{{ LOCALDOCKER_DIR }}/tunarr"
+        
     - name: Ensure stack directory exists on the VM
       ansible.builtin.file:
         path: "{{ stack_dir }}"
@@ -315,6 +318,7 @@
         - "{{ DOCKERCONFIGS_DIR }}/stashpro/metadata"
         - "{{ DOCKERCONFIGS_DIR }}/stashpersonal/metadata"
         - "{{ DOCKERCONFIGS_DIR }}/stashreel/metadata"
+        
 
     - name: Ensure stack directory exists on the VM
       ansible.builtin.file:

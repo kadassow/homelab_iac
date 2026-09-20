@@ -107,3 +107,42 @@ services:
       - $DOCKERCONFIGS_DIR/nutritrace/uploads:/data/uploads
     networks:
       - media-network
+
+# APPNICENAME=Threadfin
+# APPDESCRIPTION=M3U/XMLTV proxy that filters and maps live TV channels for Jellyfin
+  threadfin:
+    image: fyb3roptik/threadfin:latest
+    container_name: threadfin
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "34400:34400"   # Web UI + HDHomeRun/M3U/XMLTV endpoints (LAN only)
+    environment:
+      - TZ=$TZ
+    volumes:
+      ## Playlist/filter/mapping config. Kept local so Kopia picks it up with the rest of LOCALDOCKER_DIR.
+      - $LOCALDOCKER_DIR/threadfin/conf:/home/threadfin/conf
+      - $LOCALCACHE_DIR/threadfin/tmp:/tmp/threadfin
+    networks:
+      - media-network
+
+
+# APPNICENAME=Tunarr
+# APPDESCRIPTION=Builds scheduled live TV channels from your Jellyfin library
+  tunarr:
+    image: ghcr.io/chrisbenincasa/tunarr:latest
+    container_name: tunarr
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "8000:8000"   # Web UI + HDHomeRun/M3U/XMLTV endpoints (LAN only)
+    environment:
+      - TZ=$TZ
+    volumes:
+      - $LOCALDOCKER_DIR/tunarr:/config/tunarr
+    devices:
+      - /dev/dri:/dev/dri   # QuickSync transcoding, same as jellyfin
+    group_add:
+      - "108"               # render GID, confirm with `getent group render`
+    networks:
+      - media-network
