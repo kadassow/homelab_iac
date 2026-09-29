@@ -73,3 +73,17 @@ services:
     network_mode: host
     restart: unless-stopped
     logging: *default-logging
+
+    # APPNICENAME=CloudflareDDNS
+# APPDESCRIPTION=Keeps vpn.sparkylab.win pointed at the current WAN IP
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      - CLOUDFLARE_API_TOKEN=$CLOUDFLARE_DDNS_API_TOKEN
+      - DOMAINS=vpn.sparkylab.win
+      - PROXIED=false   # must be DNS-only (grey cloud) - WireGuard is raw UDP, Cloudflare's proxy only handles HTTP(S)
+      - IP6_PROVIDER=none   # you've disabled IPv6 elsewhere in the playbook
+      
