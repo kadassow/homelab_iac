@@ -1,1 +1,75 @@
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# APPNICENAME=WireGuard
+# APPDESCRIPTION=VPN server for direct phone/laptop tunnels into the LAN
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=$TZ
+      ## Public DNS name or static WAN IP clients connect to. Must match
+      ## whatever's port-forwarded to this host on UDP 51820.
+      - SERVERURL=$WIREGUARD_SERVERURL
+      - SERVERPORT=51820
+      ## Comma-separated peer names, e.g. "phone,laptop" - linuxserver/wireguard
+      ## generates a config + QR code under /config/peer_confs/<name>/ for each
+      ## on first start. Add new names here and recreate the container to add
+      ## a peer later; existing peers keep their configs untouched.
+      - PEERS=$WIREGUARD_PEERS
+      ## Push AdGuard as the DNS server over the tunnel so name resolution
+      ## (jellyfin.sparkylab.win, etc.) works the same way it does over Tailscale.
+      - PEERDNS=$ADGUARD_IP
+      ## Internal WireGuard tunnel subnet - just needs to not collide with
+      ## the real LAN (192.168.69.0/24) or Tailscale's CGNAT range.
+      - INTERNAL_SUBNET=10.13.13.0
+      ## Split-tunnel: only LAN-bound traffic routes through the tunnel,
+      ## everything else (general internet browsing) stays on the phone's
+      ## own connection. Change to 0.0.0.0/0 for a full tunnel instead.
+      - ALLOWEDIPS=192.168.69.0/24
+    volumes:
+      ## Local disk only - vm1-dmz (gateways group) never gets a CIFS mount
+      ## (DOCKERCONFIGS_DIR doesn't exist there, by design - keeps the DMZ's
+      ## attack surface from touching the NAS at all). LOCALDOCKER_DIR is
+      ## plain local disk, same pattern as vm2-services.
+      - $LOCALDOCKER_DIR/wireguard/config:/config
+      - /lib/modules:/lib/modules:ro
+    network_mode: host
+    restart: unless-stopped
+    logging: *default-logging
+
+# APPNICENAME=Tailscale
+# APPDESCRIPTION=Tailscale subnet router - advertises the LAN to the tailnet
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: vm1-dmz-router
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TS_AUTHKEY=$TAILSCALE_AUTHKEY
+      ## --accept-dns=false: this container isn't meant to consume Tailscale's
+      ## own DNS, just advertise the route. AdGuard split-DNS (already set up
+      ## in the Tailscale admin console) handles name resolution for clients.
+      - TS_EXTRA_ARGS=--advertise-routes=192.168.69.0/24 --accept-dns=false --hostname=vm1-dmz-router
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - $LOCALDOCKER_DIR/tailscale/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    network_mode: host
+    restart: unless-stopped
+    logging: *default-logging

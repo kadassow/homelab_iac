@@ -50,3 +50,10 @@ NUTRITRACE_OIDC_ISSUER: "https://{{ vault_oidc_issuer }}/application/o/nutritrac
 NUTRITRACE_OIDC_CLIENT_ID: "nutritrace"
 NUTRITRACE_OIDC_CLIENT_SECRET: "{{ vault_nutritrace_oidc_client_secret }}"
 NUTRITRACE_OIDC_REDIRECT_URIS: "https://nutritrace.sparkylab.win/api/auth/oidc/callback/1"
+
+
+# vpn stack variables
+WIREGUARD_SERVERURL: "{{ vault_wireguard_serverurl }}"
+WIREGUARD_PEERS: "{{ vault_wireguard_peers }}"
+ADGUARD_IP: "192.168.69.140"   # or wherever AdGuard actually listens
+TAILSCALE_AUTHKEY: "{{ vault_tailscale_authkey }}"

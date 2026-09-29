@@ -267,7 +267,7 @@
         - "{{ LOCALDOCKER_DIR }}/threadfin/conf"
         - "{{ LOCALCACHE_DIR }}/threadfin/tmp"
         - "{{ LOCALDOCKER_DIR }}/tunarr"
-        
+
     - name: Ensure stack directory exists on the VM
       ansible.builtin.file:
         path: "{{ stack_dir }}"
@@ -473,6 +473,64 @@
       community.docker.docker_compose_v2:
         project_src: "{{ stack_dir }}"
         state: present
+
+
+- name: Deploy vpnstack to vm1-dmz
+  hosts: gateways
+  vars:
+    stack_dir: /opt/stacks/vpnstack
+  tasks:
+    - name: Enable IP forwarding on the host (required - containers use network_mode: host)
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_file: /etc/sysctl.d/99-vpnstack-forwarding.conf
+        state: present
+        reload: yes
+
+    - name: Allow src_valid_mark for wg-quick's routing setup
+      ansible.posix.sysctl:
+        name: net.ipv4.conf.all.src_valid_mark
+        value: '1'
+        sysctl_file: /etc/sysctl.d/99-vpnstack-forwarding.conf
+        state: present
+        reload: yes
+
+    - name: Create local subdirectories vpnstack needs before first start
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ PUID }}"
+        group: "{{ PGID }}"
+        mode: '0755'
+      loop:
+        - "{{ LOCALDOCKER_DIR }}/wireguard/config"
+        - "{{ LOCALDOCKER_DIR }}/tailscale/state"
+
+    - name: Ensure stack directory exists on the VM
+      ansible.builtin.file:
+        path: "{{ stack_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy vpnstack compose file to the VM
+      ansible.builtin.copy:
+        src: docker/compose/vm_dmz/vpnstack/docker-compose.yml
+        dest: "{{ stack_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Render vpnstack .env file
+      ansible.builtin.template:
+        src: templates/vpnstack.env.j2
+        dest: "{{ stack_dir }}/.env"
+        mode: '0600'
+      no_log: true
+
+    - name: Deploy vpnstack
+      community.docker.docker_compose_v2:
+        project_src: "{{ stack_dir }}"
+        state: present
+
 
 - name: Install and Configure Kopia Backup Server
   hosts: backup
