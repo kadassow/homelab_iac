@@ -531,6 +531,13 @@
         project_src: "{{ stack_dir }}"
         state: present
 
+- name: Configure Storage VM (mergerfs + SnapRAID + Samba)
+  hosts: storage
+  roles:
+    - mergerfs
+    - snapraid
+    - samba
+    
 
 - name: Install and Configure Kopia Backup Server
   hosts: backup
@@ -654,7 +661,7 @@
       ansible.builtin.command: >
         kopia server user add {{ item }}@{{ item }}
         --user-password={{ hostvars[item]['kopia_client_password'] }}
-      loop: "{{ groups['docker_hosts'] }}"
+      loop: "{{ groups['kopia_clients'] }}"
       when: (item ~ '@' ~ item) not in kopia_user_list.stdout
       no_log: true
       notify:
@@ -672,9 +679,9 @@
 
 
 - name: Configure Kopia Backup Clients
-  hosts: docker_hosts
+  hosts: kopia_clients
   vars:
-    kopia_server_url: "{{ vault_kopia_server_url }}" # the Kopia LXC's address
+    kopia_server_url: "{{ vault_kopia_server_url }}"
     kopia_server_cert_fingerprint: "{{ vault_kopia_server_cert_fingerprint }}"
   tasks:
     - name: Create secure keyrings directory
@@ -719,16 +726,24 @@
       when: not kopia_connected.stat.exists
       no_log: true
 
-    - name: Set snapshot retention policy for this host's backup path
+    - name: Set snapshot retention policy for each backup path
       ansible.builtin.command:
         cmd: >
-          kopia policy set {{ kopia_backup_path }}
-          --keep-daily 7 --keep-weekly 4 --keep-monthly 3
-      changed_when: false   # kopia policy set is idempotent; nothing meaningful to report as changed
+          kopia policy set {{ item.path }}
+          --keep-daily {{ item.keep_daily }}
+          --keep-weekly {{ item.keep_weekly }}
+          --keep-monthly {{ item.keep_monthly }}
+      loop: "{{ kopia_backup_paths }}"
+      loop_control:
+        label: "{{ item.path }}"
+      changed_when: false
 
-    - name: Schedule nightly snapshot via cron
+    - name: Schedule nightly snapshot via cron for each backup path
       ansible.builtin.cron:
-        name: "Kopia nightly snapshot - {{ kopia_backup_path }}"
+        name: "Kopia nightly snapshot - {{ item.path }}"
         minute: "30"
         hour: "2"
-        job: "/usr/bin/kopia snapshot create {{ kopia_backup_path }} >> /var/log/kopia-snapshot.log 2>&1"
+        job: "/usr/bin/kopia snapshot create {{ item.path }} >> /var/log/kopia-snapshot.log 2>&1"
+      loop: "{{ kopia_backup_paths }}"
+      loop_control:
+        label: "{{ item.path }}"
