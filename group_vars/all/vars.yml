@@ -58,3 +58,81 @@ WIREGUARD_SERVERURL: "{{ vault_wireguard_serverurl }}"
 WIREGUARD_PEERS: "{{ vault_wireguard_peers }}"
 ADGUARD_IP: "192.168.69.106"   # or wherever AdGuard actually listens
 TAILSCALE_AUTHKEY: "{{ vault_tailscale_authkey }}"
+
+
+
+# ─── vm4-storage — mergerfs pool ───────────────────────────────────────────
+# DAS drives are passed through individually (qm set --scsiN
+# /dev/disk/by-id/usb-<serial>) — never assume /dev/sdX ordering is stable.
+mergerfs_branches:
+  - /mnt/disk1        # DAS Drive 1 — Jellyfin (movies/tv)
+  - /mnt/disk2        # DAS Drive 2 — Stash media
+  - /mnt/disk3        # DAS Drive 3 — Immich photos + Calibre ebooks
+  - /mnt/diskfallback # reused OMV drive — universal fallback member
+
+mergerfs_mount: /srv/pool
+mergerfs_create_policy: epmfs   # existing-path, most-free-space — enforces per-category drive dedication; do not use mfs, it scatters files across all branches
+
+# Pre-created ONLY on their dedicated branch, before the pool is ever
+# mounted — this is what actually enforces "drive X is dedicated to
+# category Y" under the epmfs create policy.
+mergerfs_category_layout:
+  - { branch: /mnt/disk1, folder: media/movies }
+  - { branch: /mnt/disk1, folder: media/tv }
+  - { branch: /mnt/disk2, folder: stash }
+  - { branch: /mnt/disk3, folder: photos }
+  - { branch: /mnt/disk3, folder: books }
+
+  # ─── vm4-storage — SnapRAID parity ──────────────────────────────────────────
+snapraid_parity_disk: /mnt/parity   # DAS Drive 4 — dedicated parity, NOT a mergerfs branch
+
+# ─── vm4-storage — Samba ────────────────────────────────────────────────────
+# Role-based, not per-person — apps (Nextcloud) handle their own per-user
+# access control; the filesystem layer only gates which service/admin
+# reaches which subtree. Confirm/adjust the service-account list against
+# your actual deployed apps before running the samba role.
+samba_groups:
+  - admin
+  - rw_media
+  - ro_media
+  - rw_nextcloud
+
+samba_users:
+  - { name: keith,         groups: [admin] }
+  - { name: svc_radarr,    groups: [rw_media] }
+  - { name: svc_sonarr,    groups: [rw_media] }
+  - { name: svc_bazarr,    groups: [rw_media] }
+  - { name: svc_qbittorrent, groups: [rw_media] }
+  - { name: svc_cwa,       groups: [rw_media] }
+  - { name: svc_jellyfin,  groups: [ro_media] }
+  - { name: svc_nextcloud, groups: [rw_nextcloud] }
+
+# Each entry corresponds to a vault_smb_pw_<name> secret — see vault
+# additions needed below.
+acl_definitions:
+  - { path: "{{ mergerfs_mount }}/media",     group: rw_media,     perms: rwx }
+  - { path: "{{ mergerfs_mount }}/media",     group: ro_media,     perms: r-x }
+  - { path: "{{ mergerfs_mount }}/nextcloud", group: rw_nextcloud, perms: rwx }
+  - { path: "{{ mergerfs_mount }}",           group: admin,        perms: rwx }
+
+# ─── Vault additions needed (group_vars/all/vault.yml) ─────────────────────
+# vault_kopia_client_pw_vm3_internal:
+# vault_kopia_client_pw_vm4_storage:
+# vault_smb_pw_keith:
+# vault_smb_pw_svc_radarr:
+# vault_smb_pw_svc_sonarr:
+# vault_smb_pw_svc_bazarr:
+# vault_smb_pw_svc_qbittorrent:
+# vault_smb_pw_svc_cwa:
+# vault_smb_pw_svc_jellyfin:
+# vault_smb_pw_svc_nextcloud:
+
+# ─── Drive UUIDs — fill in after manually partitioning/formatting each ─────
+# drive per docs/STORAGE_VM_SETUP_addendum.md (blkid output, step 5).
+mergerfs_branch_uuids:
+  - { branch: /mnt/disk1,        uuid: "REPLACE-ME-disk1-uuid" }
+  - { branch: /mnt/disk2,        uuid: "REPLACE-ME-disk2-uuid" }
+  - { branch: /mnt/disk3,        uuid: "REPLACE-ME-disk3-uuid" }
+  - { branch: /mnt/diskfallback, uuid: "REPLACE-ME-diskfallback-uuid" }
+
+snapraid_parity_uuid: "REPLACE-ME-parity-uuid"
