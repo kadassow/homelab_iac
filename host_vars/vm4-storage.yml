@@ -1,0 +1,19 @@
+# host_vars/vm4-storage.yml
+kopia_client_password: "{{ vault_kopia_client_pw_vm4_storage }}"
+
+# Only the irreplaceable-data categories get Kopia snapshots. Movies/TV are
+# deliberately excluded — SnapRAID parity only, re-downloadable via
+# arr-stack. See docs/STORAGE_VM_SETUP.md "Kopia scope".
+kopia_backup_paths:
+  - path: "{{ mergerfs_mount }}/books"
+    keep_daily: 14
+    keep_weekly: 8
+    keep_monthly: 12
+  - path: "{{ mergerfs_mount }}/photos"
+    keep_daily: 14
+    keep_weekly: 8
+    keep_monthly: 12
+  - path: "{{ mergerfs_mount }}/stash"
+    keep_daily: 14
+    keep_weekly: 8
+    keep_monthly: 12

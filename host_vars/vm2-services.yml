@@ -1,3 +1,8 @@
 # host_vars/vm2-services.yml
 kopia_client_password: "{{ vault_kopia_client_pw_vm2_services }}"
-kopia_backup_path: "{{ LOCALDOCKER_DIR }}"
+
+kopia_backup_paths:
+  - path: "{{ LOCALDOCKER_DIR }}"
+    keep_daily: 7
+    keep_weekly: 4
+    keep_monthly: 3

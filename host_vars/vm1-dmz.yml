@@ -1,3 +1,11 @@
 # host_vars/vm1-dmz.yml
 kopia_client_password: "{{ vault_kopia_client_pw_vm1_dmz }}"
-kopia_backup_path: /etc/wireguard   # adjust to wherever its actual configs live
+
+# Moved from a single kopia_backup_path string to a list so hosts with
+# multiple paths/retention policies (e.g. vm4-storage) are handled the same
+# way — see docs/STORAGE_VM_SETUP.md.
+kopia_backup_paths:
+  - path: /etc/wireguard   # adjust to wherever its actual configs live
+    keep_daily: 7
+    keep_weekly: 4
+    keep_monthly: 3
