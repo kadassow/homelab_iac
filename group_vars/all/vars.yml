@@ -53,7 +53,8 @@ NUTRITRACE_OIDC_REDIRECT_URIS: "https://nutritrace.sparkylab.win/api/auth/oidc/c
 
 
 # vpn stack variables
+CLOUDFLARE_DDNS_API_TOKEN: "{{ vault_cloudflare_ddns_api_token }}"
 WIREGUARD_SERVERURL: "{{ vault_wireguard_serverurl }}"
 WIREGUARD_PEERS: "{{ vault_wireguard_peers }}"
-ADGUARD_IP: "192.168.69.140"   # or wherever AdGuard actually listens
+ADGUARD_IP: "192.168.69.106"   # or wherever AdGuard actually listens
 TAILSCALE_AUTHKEY: "{{ vault_tailscale_authkey }}"
