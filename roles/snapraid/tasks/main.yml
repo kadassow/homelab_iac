@@ -1,0 +1,47 @@
+---
+# Prerequisite: the parity drive must already be partitioned and formatted
+# (ext4) manually — see docs/STORAGE_VM_SETUP_addendum.md.
+
+- name: Install SnapRAID
+  ansible.builtin.apt:
+    name: snapraid
+    state: present
+    update_cache: yes
+
+- name: Ensure parity disk mount point exists
+  ansible.builtin.file:
+    path: "{{ snapraid_parity_disk }}"
+    state: directory
+    mode: '0755'
+
+- name: Mount the pre-formatted parity disk (by UUID)
+  ansible.posix.mount:
+    path: "{{ snapraid_parity_disk }}"
+    src: "UUID={{ snapraid_parity_uuid }}"
+    fstype: ext4
+    opts: defaults,nofail
+    state: mounted
+
+- name: Render snapraid.conf
+  ansible.builtin.template:
+    src: snapraid.conf.j2
+    dest: /etc/snapraid.conf
+    mode: '0644'
+
+- name: Schedule nightly SnapRAID sync via cron
+  ansible.builtin.cron:
+    name: "SnapRAID nightly sync"
+    minute: "0"
+    hour: "3"
+    job: "/usr/bin/snapraid sync >> /var/log/snapraid-sync.log 2>&1"
+
+- name: Schedule weekly SnapRAID scrub via cron
+  # -p 12 -o 10: scrub the 12% oldest-checked blocks, skipping anything
+  # checked in the last 10 days. Adjust once real pool size/usage patterns
+  # are known — these are starting values, not tuned.
+  ansible.builtin.cron:
+    name: "SnapRAID weekly scrub"
+    minute: "0"
+    hour: "4"
+    weekday: "0"
+    job: "/usr/bin/snapraid scrub -p 12 -o 10 >> /var/log/snapraid-scrub.log 2>&1"

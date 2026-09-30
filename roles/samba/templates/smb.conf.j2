@@ -1,0 +1,29 @@
+# Managed by Ansible (roles/samba) — do not edit directly.
+
+[global]
+   workgroup = WORKGROUP
+   server string = vm4-storage
+   security = user
+   map to guest = never
+
+[media-rw]
+   path = {{ mergerfs_mount }}/media
+   valid users = @rw_media
+   force group = rw_media
+   create mask = 0660
+   directory mask = 0770
+   read only = no
+
+[media-ro]
+   path = {{ mergerfs_mount }}/media
+   valid users = @ro_media
+   force group = ro_media
+   read only = yes
+
+[nextcloud]
+   path = {{ mergerfs_mount }}/nextcloud
+   valid users = @rw_nextcloud
+   force group = rw_nextcloud
+   create mask = 0660
+   directory mask = 0770
+   read only = no

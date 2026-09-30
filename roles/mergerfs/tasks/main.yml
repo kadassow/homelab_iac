@@ -1,0 +1,60 @@
+---
+# Prerequisite: each drive listed in mergerfs_branch_uuids must already be
+# partitioned and formatted (ext4) manually — see
+# docs/STORAGE_VM_SETUP_addendum.md. This role only mounts and pools
+# already-formatted filesystems; it never formats anything.
+
+- name: Install mergerfs
+  ansible.builtin.apt:
+    name: mergerfs
+    state: present
+    update_cache: yes
+
+- name: Ensure branch mount point directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ mergerfs_branches }}"
+
+- name: Mount each pre-formatted physical disk at its branch path (by UUID)
+  # Safe to automate — this mounts an already-formatted filesystem, it does
+  # not create one. Formatting itself stays manual (see addendum doc).
+  ansible.posix.mount:
+    path: "{{ item.branch }}"
+    src: "UUID={{ item.uuid }}"
+    fstype: ext4
+    opts: defaults,nofail
+    state: mounted
+  loop: "{{ mergerfs_branch_uuids }}"
+  loop_control:
+    label: "{{ item.branch }}"
+
+- name: Ensure merged pool mount point exists
+  ansible.builtin.file:
+    path: "{{ mergerfs_mount }}"
+    state: directory
+    mode: '0755'
+
+- name: Pre-create category folders on their dedicated branch only
+  # mergerfs has no "dedicate drive X to category Y" setting itself — this
+  # pre-creation step, combined with category.create=epmfs in the mount
+  # options below, is what actually enforces per-drive dedication. Do this
+  # AFTER each branch is mounted but BEFORE the pool is ever mounted.
+  ansible.builtin.file:
+    path: "{{ item.branch }}/{{ item.folder }}"
+    state: directory
+    owner: "{{ PUID }}"
+    group: "{{ PGID }}"
+    mode: '0755'
+  loop: "{{ mergerfs_category_layout }}"
+  loop_control:
+    label: "{{ item.branch }}/{{ item.folder }}"
+
+- name: Mount mergerfs pool (persisted to /etc/fstab)
+  ansible.posix.mount:
+    path: "{{ mergerfs_mount }}"
+    src: "{{ mergerfs_branches | join(':') }}"
+    fstype: fuse.mergerfs
+    opts: "defaults,nonempty,allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create={{ mergerfs_create_policy }},moveonenospc=true"
+    state: mounted

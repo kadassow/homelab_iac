@@ -1,0 +1,56 @@
+---
+- name: Install Samba
+  ansible.builtin.apt:
+    name: samba
+    state: present
+    update_cache: yes
+
+- name: Create role-based Linux groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ samba_groups }}"
+
+- name: Create Samba system accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    groups: "{{ item.groups }}"
+    append: true
+    shell: /usr/sbin/nologin
+    system: true
+  loop: "{{ samba_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: List existing Samba users (idempotency guard)
+  ansible.builtin.command: pdbedit -L
+  register: samba_user_list
+  changed_when: false
+
+- name: Set Samba passwords for new users only
+  ansible.builtin.shell: |
+    printf '%s\n%s\n' "{{ lookup('vars', 'vault_smb_pw_' + item.name) }}" "{{ lookup('vars', 'vault_smb_pw_' + item.name) }}" | smbpasswd -s -a {{ item.name }}
+  loop: "{{ samba_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in samba_user_list.stdout
+  no_log: true
+
+- name: Render smb.conf
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    mode: '0644'
+  notify: Restart samba
+
+- name: Apply default (inherited) ACLs on shared category folders
+  ansible.posix.acl:
+    path: "{{ item.path }}"
+    entity: "{{ item.group }}"
+    etype: group
+    permissions: "{{ item.perms }}"
+    default: yes
+    state: present
+  loop: "{{ acl_definitions }}"
+  loop_control:
+    label: "{{ item.path }} -> {{ item.group }}"

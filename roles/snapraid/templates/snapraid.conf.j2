@@ -1,0 +1,17 @@
+# Managed by Ansible (roles/snapraid) — do not edit directly.
+
+parity {{ snapraid_parity_disk }}/snapraid.parity
+
+{% for branch in mergerfs_branches %}
+content {{ branch }}/.snapraid.content
+{% endfor %}
+content /var/snapraid.content
+
+{% for branch in mergerfs_branches %}
+data d{{ loop.index }} {{ branch }}
+{% endfor %}
+
+# mergerfs/system metadata — not real data, don't track it for parity
+exclude *.unrecoverable
+exclude /lost+found/
+exclude .snapraid.content
