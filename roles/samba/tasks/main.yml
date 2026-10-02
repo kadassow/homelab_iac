@@ -1,9 +1,10 @@
 ---
-- name: Install Samba
-  ansible.builtin.apt:
-    name: samba
+- name: Ensure Samba server packages are installed
+  ansible.builtin.package:
+    name:
+      - samba
+      - samba-common-bin
     state: present
-    update_cache: yes
 
 - name: Create role-based Linux groups
   ansible.builtin.group:
@@ -59,6 +60,11 @@
   loop: "{{ acl_definitions }}"
   loop_control:
     label: "{{ item.path }}"
+
+- name: Debug acl_definitions contents
+  ansible.builtin.debug:
+    var: acl_definitions
+
 
 - name: Apply default (inherited) ACLs on shared category folders via shell
   ansible.builtin.command: >
