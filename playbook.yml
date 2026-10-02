@@ -726,6 +726,22 @@
       when: not kopia_connected.stat.exists
       no_log: true
 
+    - name: Ensure each Kopia backup path exists before policy/snapshot setup
+      # Non-destructive (mkdir -p equivalent) — safe to automate, unlike
+      # drive formatting. Covers paths that are planned but not yet
+      # populated (e.g. a stash/mystuff subfolder that doesn't exist yet):
+      # `kopia policy set` accepts a nonexistent path fine, but the nightly
+      # `kopia snapshot create` cron job would fail every run until the
+      # path exists. This guarantees it exists from the first playbook run,
+      # even if empty, so there's no gap of failing cron jobs to forget about.
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ kopia_backup_paths }}"
+      loop_control:
+        label: "{{ item.path }}"
+
     - name: Set snapshot retention policy for each backup path
       ansible.builtin.command:
         cmd: >
