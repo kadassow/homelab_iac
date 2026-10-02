@@ -24,7 +24,7 @@
     path: "{{ item.branch }}"
     src: "UUID={{ item.uuid }}"
     fstype: ext4
-    opts: defaults,nofail
+    opts: defaults,nofail,acl # MUST have acl here too so samba can set acls
     state: mounted
   loop: "{{ mergerfs_branch_uuids }}"
   loop_control:
