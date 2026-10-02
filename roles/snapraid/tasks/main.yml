@@ -56,13 +56,6 @@
       [Install]
       WantedBy=timers.target
 
-- name: Enable and start the SnapRAID sync timer
-  ansible.builtin.systemd_service:
-    name: snapraid-sync.timer
-    state: started
-    enabled: true
-    daemon_reload: true
-
 
 - name: Create SnapRAID scrub systemd service unit
   ansible.builtin.copy:
@@ -91,6 +84,17 @@
 
       [Install]
       WantedBy=timers.target
+
+- name: Force systemd to reread configs
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Enable and start the SnapRAID sync timer
+  ansible.builtin.systemd_service:
+    name: snapraid-sync.timer
+    state: started
+    enabled: true
+    daemon_reload: true
 
 - name: Enable and start the SnapRAID scrub timer
   ansible.builtin.systemd_service:
