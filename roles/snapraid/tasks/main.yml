@@ -88,19 +88,21 @@
 - name: Force systemd to reread configs (Bypass module caching)
   ansible.builtin.command: systemctl daemon-reload
   changed_when: true
-
+  
 - name: Enable and start the SnapRAID sync timer
   ansible.builtin.systemd_service:
     name: snapraid-sync.timer
     state: started
     enabled: true
-  
+    daemon_reload: true
+
 - name: Enable and start the SnapRAID scrub timer
   ansible.builtin.systemd_service:
     name: snapraid-scrub.timer
     state: started
     enabled: true
-  
+    daemon_reload: true
+
 
 - name: Configure logrotate for SnapRAID logs
   ansible.builtin.copy:
