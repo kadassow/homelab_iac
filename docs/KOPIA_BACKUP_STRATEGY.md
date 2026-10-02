@@ -250,3 +250,14 @@ so it isn't lost.
   
 kopia snapshot restore kXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX /localdocker/configs \
   --overwrite-files --overwrite-directories
+
+
+# Note on where backup paths are controlled
+
+The full list of what gets backed up for a given host still lives in that host's own host_vars/<hostname>.yml, under kopia_backup_paths — this patch doesn't change where the list is edited, only adds a safety step inside the play that consumes it. To add/remove a backed-up path (e.g. stash/mystuff), edit the relevant host_vars file; the new directory-creation task picks up whatever's in that list automatically, no playbook change needed per path.
+
+# Note on vm4-storage and the mediastack/CIFS-client plays
+
+vm4-storage is in storage, not cores, so it's automatically excluded from "Enable Intel QuickSync", "Configure Core VM Specialized Storage", and "Deploy mediastack" — those all target hosts: cores already and need no change. Once vm4-storage exists, cifs_server in group_vars/all/vars.yml should point at its IP instead of the old OMV box, and vm2-services/vm3-internal keep mounting DATA_DIR/ DOCKERCONFIGS_DIR from there exactly as before — no client-side compose changes needed, just the one IP.
+
+Run --check --diff --limit vm4-storage before the real run, per ANSIBLE_HOST_ONBOARDING.md's standing habit — this is a brand-new host and group, exactly the case that check is for.

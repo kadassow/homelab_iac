@@ -71,8 +71,14 @@ the `kopia-server` LXC, using LXC-appropriate syntax (`pct set`, not
 pct set <kopia-server-vmid> -mp0 /dev/disk/by-id/usb-<serial>,mp=/mnt/backup-drive
 ```
 
+# Addendum to docs/STORAGE_VM_SETUP.md — Drive Preparation
+
+Insert this as a new section, **before** "## Drive pooling plan".
+
+---
+
 ## Preparing each drive — manual, not Ansible-automated
- 
+
 Partitioning and formatting are deliberately kept as a manual, one-time,
 per-drive step rather than an Ansible task. Unlike the rest of this repo's
 destructive-looking-but-actually-safe operations (e.g. `kopia repository
@@ -82,9 +88,9 @@ failure mode — a wrong condition, a wrong host limit, or a re-run against
 an already-populated drive has no undo. Mounting an *already-formatted*
 filesystem is safe to automate (see the updated `mergerfs` role below);
 creating that filesystem in the first place is not.
- 
+
 ### Filesystem choice: ext4, not btrfs
- 
+
 btrfs's main selling point here — checksumming to catch silent
 corruption — doesn't add a real protection ceiling in this setup: each DAS
 bay is an independent single-device mergerfs branch (no btrfs RAID1/mirror
@@ -103,47 +109,67 @@ practice, and is simpler to reason about for a pool meant to be set up once
 and left alone. **Decision: ext4 on every branch, parity disk, and the
 Kopia backup drive — one consistent filesystem type across the whole
 setup.**
- 
+
 ### Steps — repeat per drive (3 new DAS drives, the reused OMV drive, the
 parity drive, and the separate Kopia backup drive)
- 
+
 **Do this one drive at a time. Confirm the `by-id` serial against the
 physical bay/enclosure label before touching anything — there is no
 confirmation prompt once `mkfs` runs.**
- 
+
 ```bash
+# 0. One-time on vm4-storage: minimal Debian doesn't ship these. Not worth
+#    adding to the mergerfs role — the role only mounts already-formatted
+#    filesystems, it never calls parted/mkfs itself, so these tools are
+#    never needed after this manual prep is done.
+apt update && apt install -y parted gdisk smartmontools e2fsprogs
+
 # 1. Identify the drive — confirm this serial matches the physical bay
 #    you think it is before proceeding.
 ls -la /dev/disk/by-id/ | grep -i usb
- 
+
 # 2. If reusing a drive that already has data/a filesystem (the old OMV
 #    drive), make sure its data has already been copied off per the
 #    migration steps in STORAGE_VM_SETUP.md BEFORE this step. Then wipe
 #    old filesystem signatures:
 wipefs -a /dev/disk/by-id/usb-<serial>
- 
+
 # 3. Partition — single GPT partition covering the whole disk:
 parted /dev/disk/by-id/usb-<serial> --script mklabel gpt mkpart primary ext4 0% 100%
- 
+
 # 4. Format — label matches the branch it'll serve (disk1/disk2/disk3/
 #    diskfallback/parity/kopiabackup), so `lsblk -f` is self-explanatory
 #    later:
 mkfs.ext4 -L disk1 /dev/disk/by-id/usb-<serial>-part1
- 
+
 # 5. Get the filesystem UUID — this is what goes in Ansible's fstab entry,
 #    not the by-id path (by-id partition suffixes aren't fully consistent
 #    across all USB bridge chips; UUID is the stable identifier):
 blkid /dev/disk/by-id/usb-<serial>-part1
 ```
- 
+
 Record each drive's UUID against its intended role (disk1/disk2/disk3/
 diskfallback/parity) — the updated `mergerfs` role below expects these in
 `mergerfs_branch_uuids`.
- 
+
+### SMART monitoring is not available through this passthrough method
+
+Drives passed through via `qm set --scsiN /dev/disk/by-id/usb-<serial>` are
+direct raw block-device passthrough (no image file — writes go straight to
+the physical disk), but the guest sees them through QEMU's emulated SCSI
+controller, which identifies as `Vendor: QEMU, Product: QEMU HARDDISK` and
+does not forward ATA/SMART passthrough commands — `smartctl` reports
+"SMART support is: Unavailable" regardless of `-d sat`/`-d scsi` flags or
+the real drive's own capability. This is a side effect of per-disk
+passthrough (deliberately chosen over whole-controller passthrough to
+avoid a shared-bus failure dropping all 4 drives at once), not a
+TerraMaster/bridge-chip limitation — don't re-diagnose this later as a
+hardware issue. SnapRAID's own scrub provides corruption detection
+independent of SMART, so this is an accepted gap rather than a blocker.
+
 **Once every drive is partitioned, formatted, and its UUID recorded, hand
 off to Ansible** — mounting the finished filesystems and assembling the
 mergerfs pool on top of them is safe to automate from here.
-
 ## Drive pooling plan
 
 | Drive | Role | mergerfs branch? | SnapRAID member? |
@@ -237,30 +263,87 @@ this only happens once:
    pool categories before decommissioning the old OMV instance.
 3. Decommission OMV once the copy is verified.
 
-## Samba — three role-based groups, not per-person ACLs
+# Addendum to docs/STORAGE_VM_SETUP.md — Samba Access Model
 
-Since Nextcloud (and any other multi-user app) does its own per-user access
-control at the application layer, the filesystem/Samba layer only needs to
-gate *which service or admin* can reach *which subtree* — not individual
-family members:
+Insert this as a new section, replacing the existing short "## Samba —
+three role-based groups, not per-person ACLs" section (the model below
+supersedes it with the actual reasoning worked through).
 
-- `admin` — full RW across the pool, for direct maintenance.
-- `rw_media` / `ro_media` — reused across services with the same access
-  pattern (Radarr/Sonarr/Bazarr/qBittorrent/Whisparr/CWA → `rw_media`;
-  Jellyfin and pure viewers → `ro_media`). Enforced via Docker-level `:ro`
-  volume flags on the consuming containers, not separate CIFS
-  credentials — see `EXPOSURE_ARCHITECTURE.md`'s reasoning on why
-  per-tier CIFS shares don't add real isolation once a host already holds
-  `rw` access for something else.
-- `rw_nextcloud` — Nextcloud's own service account, scoped to its own
-  subtree only.
+---
 
-## Open items
+## Samba access model — per-host accounts, not per-stack or per-person
 
-- `smartctl` verification across all 5 USB-attached drives — not yet run.
-- Exact `vm4-storage` static IP and VMID — placeholder in inventory until
-  assigned.
-- General `DOCKERCONFIGS_DIR`-equivalent backup strategy — separate future
-  item, not part of this storage VM build.
-- Confirm nothing else about the current OMV instance (beyond mergerfs/
-  snapraid/shares) needs replicating before decommissioning it.
+### The question that drove this
+
+The instinct going in was to give each Docker stack (arrstack, stashstack,
+mediastack) its own Samba account, on the theory that if `stash` changes
+unexpectedly, the account that touched it tells you which stack did it —
+real audit-trail value, same reasoning already applied to Kopia's
+per-host scoped credentials.
+
+### Why per-stack accounts don't actually deliver that
+
+`vm2-services` and `vm3-internal` each mount the pool via **one CIFS
+session, authenticated once, at the host level** — every container on that
+host reaches the pool through a local bind-mount on top of that single
+mount, not by individually authenticating to Samba itself. A Samba account
+only does something if some connection actually presents its credential.
+Since only one credential is ever presented per host, a `svc_stashstack`
+account sitting in the vault alongside `svc_arrstack` would never actually
+get used — there's no second CIFS connection for it to be the credential
+for. Finer-grained accounts here aren't a security boundary, just unused
+entries in the vault.
+
+This also caps how precise the audit value can ever be, independent of
+Samba entirely: every container across every stack runs under the same
+`PUID`/`PGID` (1000:1000) today. Even with perfect per-container Samba
+accounts, the filesystem itself wouldn't distinguish *which* container
+wrote a file — there's no existing attribution signal underneath for a
+finer Samba boundary to expose. (If per-container attribution is ever
+wanted, the actual lever is giving each stack its own distinct PUID/GID —
+a separate, smaller change, independent of anything here.)
+
+### The boundary that *is* real: per-host
+
+What the architecture actually enforces is one authenticated connection
+per host. That's the real, usable boundary:
+
+- A leaked `vm3-internal` Samba credential doesn't expose `vm2-services`'s
+  access, and vice versa.
+- If `stash` changes unexpectedly, `rw_stash` narrows the search to
+  "something on `vm3-internal`" — not which specific container, but enough
+  to know which host to go check logs on first, rather than guessing
+  between both VMs or wondering about a direct LAN connection.
+
+### Decision: two service accounts, one per host, each in the groups that
+### host's stacks actually need
+
+```yaml
+samba_users:
+  - { name: keith,           groups: [admin] }
+  - { name: svc_vm2services, groups: [ro_media, rw_books, rw_dockerconfigs] }
+  - { name: svc_vm3internal, groups: [rw_media, rw_stash, rw_dockerconfigs] }
+```
+
+### Stash's actual access pattern — corrected from an earlier draft
+
+Stash doesn't organize/rename/import its own media the way Radarr/Sonarr
+do — it scans and tags what's already there, writing only its own
+thumbnails/metadata into its `DOCKERCONFIGS_DIR` slice. The write into the
+Stash media library itself happens via **Whisparr's** import step (same
+hardlink-on-same-branch pattern as Radarr/Sonarr), and Whisparr lives in
+`arrstack`, not `stashstack`. So:
+
+- `vm3-internal` (hosts both arrstack and stashstack) needs `rw_stash` —
+  Whisparr's writes land here.
+- Stash itself only ever needs read access to its own library — covered
+  by the same `rw_stash` grant since it's host-level, not app-level, but
+  worth knowing Stash's own container never actually writes there.
+
+### `photos` and `emulation` — deliberately ungrouped for now
+
+Both folders exist on disk3's branch layout as reserved space, but neither
+has a deployed consumer (Immich, an emulation stack) yet. No group or ACL
+entry exists for either — add one once a real service is standing up
+against that path, rather than guessing at an access pattern for something
+that doesn't exist yet.

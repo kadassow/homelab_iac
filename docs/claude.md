@@ -37,14 +37,57 @@ anymore. Current split:
   management UIs, auth handled by Cloudflare Access rather than Authentik.
 - **LAN-only, not exposed**: Stash (and `stash-vr`) — deliberately kept
   internal for now, pending a specific reason to expose it.
-- **WireGuard** on `vm1-dmz` — still available for full-tunnel LAN access
-  when actually needed, separate from per-app proxying.
+- **WireGuard + Tailscale** on `vm1-dmz` (`vpnstack`) — both running side
+  by side, deliberately, to compare them for phone remote access rather
+  than committing to one. Replaces a previously standalone,
+  informally-built Tailscale LXC (subnet router role) — nothing from that
+  LXC needs to be migrated over. Decision pending: run WireGuard on
+  `vm1-dmz` as planned, or use the TP-Link Deco X75 Pro's built-in
+  WireGuard server instead.
 
 Reasoning: routing every service through one auth gate (the original
 plan) means a single Authentik bug becomes a skeleton key for the whole
 homelab. Splitting by exposure type/bandwidth profile reduces the number
 of internet-facing paths in the first place, rather than trusting one gate
 to guard all of them.
+
+
+## Home Assistant VM (planned)
+
+A new, dedicated VM for full HAOS (Home Assistant OS with Supervisor/
+add-ons) — deliberately not HA Core in Docker, and not folded into
+`vm3-internal` or any LXC.
+
+- Proposed static IP: `192.168.69.242`
+- Sonoff ZBDongle-P passed through via Proxmox USB passthrough
+- LAN-only exposure — no internet-facing path planned
+- Backup via HAOS's own snapshot mechanism, separate from Kopia (HAOS
+  doesn't expose a filesystem Kopia can cleanly snapshot the way
+  `LOCALDOCKER_DIR` does)
+- **Out of Ansible's scope**: HAOS has no Python/package manager and a
+  restricted SSH add-on, so Ansible can only handle Proxmox-level VM
+  provisioning — same treatment as the Cloudflare Tunnel and Proxmox GPU
+  config (documented, not playbook-managed)
+- Full install plan: `docs/HOME_ASSISTANT_SETUP.md`
+
+
+## Remote Access — Tailscale Notes
+
+- Tailscale already installed on phone; used to reach Jellyfin (and
+  potentially other services) while away from home, without routing
+  through the Cloudflare Tunnel.
+- Considered a Tailscale subnet-router LXC so the phone can reach all
+  server apps remotely, not just Jellyfin — this is effectively what
+  `vpnstack`'s Tailscale container will do once built via Ansible.
+- **Known gotcha**: phone-side DNS issues (`jellyfin.sparkylab.win` not
+  resolving over Tailscale, though the bare IP worked) were not fixed by
+  logging out/into the Tailscale app — only a full uninstall/reinstall
+  resolved it. Chrome also needed to be explicitly added to Tailscale's
+  split-DNS allow list on the phone before it would resolve LAN IPs at
+  all.
+- `vpnstack` plan: WireGuard + Tailscale as Docker containers on
+  `vm1-dmz`, deployed via a new Ansible play, with Kopia backing up the
+  important config/state files for both.
 
 # Cloudflare
 I have a cloudflare account with zero trust application setup to talk to my cloudflare tunnel lxc. 
@@ -198,7 +241,20 @@ fresh key in Stash after deployment — do not reuse the old one.
 - ✅ Authentik deployed (dedicated LXC via Proxmox helper script) and
   NutriTrace OIDC login confirmed working end-to-end — see
   `AUTHENTIK_OIDC_SETUP.md`
-
+- ✅ arr-stack and stash-stack deployed via Ansible to `vm3-internal`
+   (`docker_internal` group) — compose copy, `.env` render, and
+   `docker_compose_v2` deploy plays all in `playbook.yml`.
+   ** Second GPU VF (`.2`) passed through specifically for Stash
+   transcoding, separate from vm2-services's VF — verify this on
+   vm3-internal's first boot per PROXMOX_GPU_SETUP.md's checkpoint. **
+- ✅ Jellyfin live TV working — Threadfin deployed, Samsung TV Plus XMLTV
+   guide wired in, channel set scoped to history/ancient-mysteries/
+   HGTV-style plus a custom scheduled channel built from personal library
+   (X-Files episodes). Two non-obvious fixes worth keeping documented:
+   EPG Source had to be switched from PMS to XEPG for channel mapping to
+   work, and live playback needed the buffer set to FFmpeg specifically
+   inside the Samsung playlist's own per-playlist edit dialog in
+   Threadfin (not the global Settings page).
 
 # Status: NOT DONE yet — next steps
 
@@ -218,9 +274,7 @@ fresh key in Stash after deployment — do not reuse the old one.
 We need to do this all correctly to make setup of other services much easier as my current omv build seems incorrect or inappropriate where I had just got it to work brute force style.
 
 - setup calibre web automated
-- setup arr stack to be configured through ansible
 - setup kopia server and clients to centralize backup strategy.
-- setup live tv service in jellyfin that mimics samsung live tv channels.
 - setup authentik totp, sso, password complexity and domain auth
 - setup shelfarr service to feed into cwa
 - install portainer on docker hosts
@@ -230,7 +284,29 @@ We need to do this all correctly to make setup of other services much easier as 
 - create restore playbook to make rebuilding and restoring vm services.
 - setup bitwarden to feed vault password to ansible
 - setup docker container schedules.  example - jellyfin could probably be shut down between 1am to 7am or trailarr isn't needed for a long time.  Will this save resources on the host or is it more troublesome than it's worth?
-
+- Build dedicated Home Assistant VM (full HAOS) — see new "Home Assistant
+  VM" section above; `docs/HOME_ASSISTANT_SETUP.md` has the drafted plan.
+- Decide WireGuard-on-vm1-dmz vs. TP-Link Deco X75 Pro's built-in
+  WireGuard server for phone remote access; build `vpnstack` (WireGuard +
+  Tailscale) via Ansible either way, with Kopia backing up state.
+- Decommission the standalone, non-Ansible-managed Tailscale LXC once
+  `vpnstack`'s Tailscale container is confirmed working.
+- Drop `i915.max_vfs` from `2` to `1` on the Proxmox host once confirmed
+  only one VF is actually needed — currently running `max_vfs=2` carried
+  over from initial SR-IOV setup. (Note: if vm3-internal's second VF for
+  Stash transcoding is confirmed needed long-term, keep `max_vfs=2`
+  instead — don't drop this until that's settled.)
+- Fix `.env` rendering pipeline risk: NutriTrace OIDC fixes were
+  hand-applied directly to `.env` on vm2-services at one point and could
+  silently revert on the next Ansible run that regenerates it from the
+  Jinja2 template. Needs either a documented manual re-apply step or a
+  template fix so hand-edits can't silently disappear.
+- Monitoring: tool choice settled — Uptime Kuma specifically (not the
+  fuller Prometheus/Grafana stack), as a push-monitor dead-man's-switch
+  for Kopia backup verification. Placement still undecided: new dedicated
+  LXC (via Proxmox community helper script, Ansible-onboarded after) vs.
+  reusing vm3-internal.
+  
 # Questions and future tasks
 1. ~~Can we point my arrStack and StashStack to an authentik server which
    then authorizes first and then proxies to the right service?~~
@@ -273,6 +349,11 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/Proxmo
 
 ## Router
 TP-LInk x75 pro mesh wifi 
+
+Router/gateway IP: 192.168.68.1
+Homelab servers live in the 192.168.69.0–255 range — VM network configs
+(qm set --ipconfig0, Ansible inventory) need a /23 CIDR, not /24, to span
+both subnets correctly.
  
 ## Android phone apps
 I want to support native android apps - 
