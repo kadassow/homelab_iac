@@ -28,20 +28,96 @@
     dest: /etc/snapraid.conf
     mode: '0644'
 
-- name: Schedule nightly SnapRAID sync via cron
-  ansible.builtin.cron:
-    name: "SnapRAID nightly sync"
-    minute: "0"
-    hour: "3"
-    job: "/usr/bin/snapraid sync >> /var/log/snapraid-sync.log 2>&1"
+- name: Create SnapRAID sync systemd service unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/snapraid-sync.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=SnapRAID Sync Service
+      After=local-fs.target
 
-- name: Schedule weekly SnapRAID scrub via cron
-  # -p 12 -o 10: scrub the 12% oldest-checked blocks, skipping anything
-  # checked in the last 10 days. Adjust once real pool size/usage patterns
-  # are known — these are starting values, not tuned.
-  ansible.builtin.cron:
-    name: "SnapRAID weekly scrub"
-    minute: "0"
-    hour: "4"
-    weekday: "0"
-    job: "/usr/bin/snapraid scrub -p 12 -o 10 >> /var/log/snapraid-scrub.log 2>&1"
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/sh -c '/usr/bin/snapraid sync >> /var/log/snapraid-sync.log 2>&1'
+
+- name: Create SnapRAID sync systemd timer unit (3 AM nightly)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/snapraid-sync.timer
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Run SnapRAID sync nightly at 3 AM
+
+      [Timer]
+      OnCalendar=*-*-* 03:00:00
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+- name: Enable and start the SnapRAID sync timer
+  ansible.builtin.systemd_service:
+    name: snapraid-sync.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+
+
+- name: Create SnapRAID scrub systemd service unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/snapraid-scrub.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=SnapRAID Scrub Service
+      After=local-fs.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/sh -c '/usr/bin/snapraid scrub -p 12 -o 10 >> /var/log/snapraid-scrub.log 2>&1'
+
+- name: Create SnapRAID scrub systemd timer unit (4 AM Sunday)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/snapraid-scrub.timer
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Run SnapRAID scrub weekly at 4 AM on Sunday
+
+      [Timer]
+      OnCalendar=Sun *-*-* 04:00:00
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+- name: Enable and start the SnapRAID scrub timer
+  ansible.builtin.systemd_service:
+    name: snapraid-scrub.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+
+
+- name: Configure logrotate for SnapRAID logs
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/snapraid
+    mode: '0644'
+    owner: root
+    group: root
+    content: |
+      /var/log/snapraid-sync.log
+      /var/log/snapraid-scrub.log {
+          weekly
+          rotate 4
+          missingok
+          notifempty
+          compress
+          delaycompress
+          sharedscripts
+          postrotate
+              systemctl reload systemd-journald >/dev/null 2>&1 || true
+          endscript
+      }
+
