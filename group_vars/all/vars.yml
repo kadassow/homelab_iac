@@ -68,71 +68,98 @@ mergerfs_branches:
   - /mnt/disk1        # DAS Drive 1 — Jellyfin (movies/tv)
   - /mnt/disk2        # DAS Drive 2 — Stash media
   - /mnt/disk3        # DAS Drive 3 — Immich photos + Calibre ebooks
-  - /mnt/diskfallback # reused OMV drive — universal fallback member
+  # - /mnt/diskfallback # reused OMV drive — still in active use by OMV; add
+  #                     # back here (and to mergerfs_branch_uuids below) only
+  #                     # once it's been migrated off, wiped, reformatted,
+  #                     # and has a real UUID. Deploying it now with a
+  #                     # placeholder/nonexistent UUID fails the mergerfs
+  #                     # role's mount task outright. Adding it later is
+  #                     # non-disruptive to the existing pool — but also
+  #                     # re-run the snapraid role and run an initial
+  #                     # `snapraid sync` once it's added, so the new disk's
+  #                     # content is actually covered by parity.
 
 mergerfs_mount: /srv/pool
 mergerfs_create_policy: epmfs   # existing-path, most-free-space — enforces per-category drive dedication; do not use mfs, it scatters files across all branches
 
 # Pre-created ONLY on their dedicated branch, before the pool is ever
 # mounted — this is what actually enforces "drive X is dedicated to
-# category Y" under the epmfs create policy.
+# category Y" under the epmfs create policy. Every top-level folder name
+# must be exclusive to exactly one branch (a folder pre-created on two
+# branches lets epmfs split new files between them by free space, silently
+# defeating the dedication) — "downloads" is the one exception, since its
+# only real write targets are the distinct subfolders below it, never the
+# downloads/ root itself.
 mergerfs_category_layout:
-  - { branch: /mnt/disk1, folder: media/movies }
-  - { branch: /mnt/disk1, folder: media/tv }
-  - { branch: /mnt/disk2, folder: stash }
-  - { branch: /mnt/disk3, folder: photos }
-  - { branch: /mnt/disk3, folder: books }
+  - { branch: /mnt/disk1, folder: media }                # Jellyfin movies+tv (arrstack writes via hardlink, same branch)
+  - { branch: /mnt/disk1, folder: downloads/media }
+  - { branch: /mnt/disk2, folder: stash }                 # Stash library (arrstack's Whisparr writes via hardlink, same branch)
+  - { branch: /mnt/disk2, folder: downloads/privatestuff }
+  - { branch: /mnt/disk3, folder: photos }                # not yet deployed (Immich) — folder reserved
+  - { branch: /mnt/disk3, folder: books }                 # mediastack's Calibre-Web-Automated
+  - { branch: /mnt/disk3, folder: dockerconfigs }         # DOCKERCONFIGS_DIR pool-side backing — every stack's own config/cache slice
+  - { branch: /mnt/disk3, folder: emulation }             # not yet deployed — folder reserved
+  - { branch: /mnt/disk3, folder: downloads/otherstuff }  # mediastack's ebook ingest, misc jdownloader output
 
   # ─── vm4-storage — SnapRAID parity ──────────────────────────────────────────
 snapraid_parity_disk: /mnt/parity   # DAS Drive 4 — dedicated parity, NOT a mergerfs branch
 
 # ─── vm4-storage — Samba ────────────────────────────────────────────────────
-# Role-based, not per-person — apps (Nextcloud) handle their own per-user
-# access control; the filesystem layer only gates which service/admin
-# reaches which subtree. Confirm/adjust the service-account list against
-# your actual deployed apps before running the samba role.
+# Accounts are per-HOST, not per-stack or per-person-beyond-admin. Reasoning
+# (see docs/STORAGE_VM_SETUP.md "Samba access model"): vm2-services and
+# vm3-internal each authenticate to this CIFS share exactly once, at the
+# host level — every container on that host rides the one mount via a local
+# bind-mount, so a per-service Samba account would never actually get used
+# (nothing below the host ever presents its own credential). The group a
+# host's account belongs to is also the real detection boundary: if `stash`
+# changes unexpectedly, rw_stash narrows it to "something on vm3-internal,"
+# not a specific container — every container on a host shares one PUID/GID
+# today, so there's no finer attribution available even in principle.
 samba_groups:
   - admin
-  - rw_media
+  - rw_media          # arrstack (movies/tv) — Radarr/Sonarr/Bazarr/qBittorrent write; Jellyfin reads via ro_media
   - ro_media
-  - rw_nextcloud
-
+  - rw_stash          # arrstack's Whisparr/qbittorrent_whisparr write (import); stashstack itself is read-only on its library
+  - rw_books          # mediastack's Calibre-Web-Automated
+  - rw_dockerconfigs  # every stack's own slice of the pool-side DOCKERCONFIGS_DIR backing
+  - rw_nextcloud      # future
+ 
 samba_users:
-  - { name: keith,         groups: [admin] }
-  - { name: svc_radarr,    groups: [rw_media] }
-  - { name: svc_sonarr,    groups: [rw_media] }
-  - { name: svc_bazarr,    groups: [rw_media] }
-  - { name: svc_qbittorrent, groups: [rw_media] }
-  - { name: svc_cwa,       groups: [rw_media] }
-  - { name: svc_jellyfin,  groups: [ro_media] }
-  - { name: svc_nextcloud, groups: [rw_nextcloud] }
-
+  - { name: keith,           groups: [admin] }
+  - { name: svc_vm2services, groups: [ro_media, rw_books, rw_dockerconfigs] }     # mediastack host — Jellyfin (read-only), CWA, NutriTrace uploads
+  - { name: svc_vm3internal, groups: [rw_media, rw_stash, rw_dockerconfigs] }     # arrstack + stashstack host
+ 
 # Each entry corresponds to a vault_smb_pw_<name> secret — see vault
 # additions needed below.
 acl_definitions:
-  - { path: "{{ mergerfs_mount }}/media",     group: rw_media,     perms: rwx }
-  - { path: "{{ mergerfs_mount }}/media",     group: ro_media,     perms: r-x }
-  - { path: "{{ mergerfs_mount }}/nextcloud", group: rw_nextcloud, perms: rwx }
-  - { path: "{{ mergerfs_mount }}",           group: admin,        perms: rwx }
-
+  - { path: "{{ mergerfs_mount }}/media",                  group: rw_media,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/media",                  group: ro_media,         perms: r-x }
+  - { path: "{{ mergerfs_mount }}/downloads/media",        group: rw_media,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/stash",                  group: rw_stash,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/downloads/privatestuff", group: rw_stash,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/books",                  group: rw_books,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/downloads/otherstuff",   group: rw_books,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/dockerconfigs",          group: rw_dockerconfigs, perms: rwx }
+  - { path: "{{ mergerfs_mount }}/nextcloud",              group: rw_nextcloud,     perms: rwx }
+  - { path: "{{ mergerfs_mount }}",                        group: admin,            perms: rwx }
+# photos/ and emulation/ intentionally have no ACL entry yet — no consumer
+# is deployed for either (Immich, emulation stack). Add a group + ACL pair
+# once a real service exists to scope access to, rather than guessing at
+# an access pattern for something that doesn't exist yet.
+ 
 # ─── Vault additions needed (group_vars/all/vault.yml) ─────────────────────
 # vault_kopia_client_pw_vm3_internal:
 # vault_kopia_client_pw_vm4_storage:
 # vault_smb_pw_keith:
-# vault_smb_pw_svc_radarr:
-# vault_smb_pw_svc_sonarr:
-# vault_smb_pw_svc_bazarr:
-# vault_smb_pw_svc_qbittorrent:
-# vault_smb_pw_svc_cwa:
-# vault_smb_pw_svc_jellyfin:
-# vault_smb_pw_svc_nextcloud:
+# vault_smb_pw_svc_vm2services:
+# vault_smb_pw_svc_vm3internal:
 
 # ─── Drive UUIDs — fill in after manually partitioning/formatting each ─────
 # drive per docs/STORAGE_VM_SETUP_addendum.md (blkid output, step 5).
 mergerfs_branch_uuids:
-  - { branch: /mnt/disk1,        uuid: "REPLACE-ME-disk1-uuid" }
-  - { branch: /mnt/disk2,        uuid: "REPLACE-ME-disk2-uuid" }
-  - { branch: /mnt/disk3,        uuid: "REPLACE-ME-disk3-uuid" }
-  - { branch: /mnt/diskfallback, uuid: "REPLACE-ME-diskfallback-uuid" }
+  - { branch: /mnt/disk1,        uuid: "085bc0b3-7c28-4f42-b20c-c9867383dca1" }
+  - { branch: /mnt/disk2,        uuid: "144d28f9-dfcc-4302-be89-bb108b37b322" }
+  - { branch: /mnt/disk3,        uuid: "1b3b52fa-b9ff-4863-9188-86b08c9143f7" }
+  # - { branch: /mnt/diskfallback, uuid: "REPLACE-ME-diskfallback-uuid" }  # see note above — add once OMV migration is done
 
-snapraid_parity_uuid: "REPLACE-ME-parity-uuid"
+snapraid_parity_uuid: "0c0c2ab9-70a6-414c-a156-2437e94af6f0"
