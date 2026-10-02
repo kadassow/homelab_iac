@@ -60,14 +60,23 @@
   loop_control:
     label: "{{ item.path }}"
 
-- name: Apply default (inherited) ACLs on shared category folders
-  ansible.posix.acl:
-    path: "{{ item.path }}"
-    entity: "{{ item.group }}"
-    etype: group
-    permissions: "{{ item.perms }}"
-    default: yes
-    state: present
+- name: Apply default (inherited) ACLs on shared category folders via shell
+  ansible.builtin.command: >
+    setfacl -d -m g:{{ item.group }}:{{ item.perms }} {{ item.path }}
   loop: "{{ acl_definitions }}"
   loop_control:
     label: "{{ item.path }} -> {{ item.group }}"
+  changed_when: false  # Prevents task from showing as 'changed' every run
+
+
+# - name: Apply default (inherited) ACLs on shared category folders
+#   ansible.posix.acl:
+#     path: "{{ item.path }}"
+#     entity: "{{ item.group }}"
+#     etype: group
+#     permissions: "{{ item.perms }}"
+#     default: yes
+#     state: present
+#   loop: "{{ acl_definitions }}"
+#   loop_control:
+#     label: "{{ item.path }} -> {{ item.group }}"
