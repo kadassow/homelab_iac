@@ -480,7 +480,7 @@
   vars:
     stack_dir: /opt/stacks/vpnstack
   tasks:
-    - name: Enable IP forwarding on the host (required - containers use network_mode: host)
+    - name: Enable IP forwarding on the host (required - containers use network_mode=host)
       ansible.posix.sysctl:
         name: net.ipv4.ip_forward
         value: '1'
