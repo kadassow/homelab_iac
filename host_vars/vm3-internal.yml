@@ -6,3 +6,7 @@ kopia_backup_paths:
     keep_daily: 7
     keep_weekly: 4
     keep_monthly: 3
+
+# host_vars/vm3-internal.yml — add to the existing file
+CIFS_USERNAME: svc_vm3internal
+CIFS_PASSWORD: "{{ vault_smb_pw_svc_vm3internal }}"
