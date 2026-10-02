@@ -13,7 +13,7 @@ kopia_backup_paths:
     keep_daily: 14
     keep_weekly: 8
     keep_monthly: 12
-  - path: "{{ mergerfs_mount }}/stash"
+  - path: "{{ mergerfs_mount }}/stash/mystuff"
     keep_daily: 14
     keep_weekly: 8
     keep_monthly: 12
