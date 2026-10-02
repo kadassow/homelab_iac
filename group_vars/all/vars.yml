@@ -122,8 +122,7 @@ samba_groups:
   - rw_stash          # arrstack's Whisparr/qbittorrent_whisparr write (import); stashstack itself is read-only on its library
   - rw_books          # mediastack's Calibre-Web-Automated
   - rw_dockerconfigs  # every stack's own slice of the pool-side DOCKERCONFIGS_DIR backing
-  - rw_nextcloud      # future
- 
+  
 samba_users:
   - { name: keith,           groups: [admin] }
   - { name: svc_vm2services, groups: [ro_media, rw_books, rw_dockerconfigs] }     # mediastack host — Jellyfin (read-only), CWA, NutriTrace uploads
@@ -140,7 +139,6 @@ acl_definitions:
   - { path: "{{ mergerfs_mount }}/books",                  group: rw_books,         perms: rwx }
   - { path: "{{ mergerfs_mount }}/downloads/otherstuff",   group: rw_books,         perms: rwx }
   - { path: "{{ mergerfs_mount }}/dockerconfigs",          group: rw_dockerconfigs, perms: rwx }
-  - { path: "{{ mergerfs_mount }}/nextcloud",              group: rw_nextcloud,     perms: rwx }
   - { path: "{{ mergerfs_mount }}",                        group: admin,            perms: rwx }
 # photos/ and emulation/ intentionally have no ACL entry yet — no consumer
 # is deployed for either (Immich, emulation stack). Add a group + ACL pair
