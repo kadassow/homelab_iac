@@ -1,5 +1,5 @@
 ---
 - name: Restart samba
-  ansible.builtin.systemd:
-    name: smbd
+  ansible.builtin.service:
+    name: smb  # 🟢 Changed from smbd to smb for Debian 13/minimal compatibility
     state: restarted
