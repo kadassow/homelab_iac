@@ -395,6 +395,7 @@
         project_src: "{{ stack_dir }}"
         state: present
 
+- name: Deploy stashstack to vm3-internal
   hosts: docker_internal
   vars:
     stack_dir: /opt/stacks/stashstack
