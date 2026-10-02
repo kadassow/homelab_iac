@@ -5,11 +5,16 @@
    server string = vm4-storage
    security = user
    map to guest = never
+   server min protocol = SMB3
+   disable netbios = yes
+   smb ports = 445
+   hosts allow = 192.168.69.0/23
 
 [media]
    path = {{ mergerfs_mount }}/media
-   valid users = @rw_media, @ro_media
-   force group = rw_media
+   valid users = @rw_media, @ro_media, @admin
+   read list = @ro_media
+   write list = @rw_media
    create mask = 0660
    directory mask = 0770
    # read-only enforcement happens per-connecting-user via valid users'
@@ -21,7 +26,7 @@
 
 [stash]
    path = {{ mergerfs_mount }}/stash
-   valid users = @rw_stash
+   valid users = @rw_stash, @admin
    force group = rw_stash
    create mask = 0660
    directory mask = 0770
@@ -29,24 +34,17 @@
 
 [books]
    path = {{ mergerfs_mount }}/books
-   valid users = @rw_books
-   force group = rw_books
+   valid users = @rw_books, @admin
+   read list = @ro_media
+   write list = @rw_media
    create mask = 0660
    directory mask = 0770
    read only = no
 
 [dockerconfigs]
    path = {{ mergerfs_mount }}/dockerconfigs
-   valid users = @rw_dockerconfigs
+   valid users = @rw_dockerconfigs, @admin
    force group = rw_dockerconfigs
-   create mask = 0660
-   directory mask = 0770
-   read only = no
-
-[nextcloud]
-   path = {{ mergerfs_mount }}/nextcloud
-   valid users = @rw_nextcloud
-   force group = rw_nextcloud
    create mask = 0660
    directory mask = 0770
    read only = no
