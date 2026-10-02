@@ -85,23 +85,19 @@
       [Install]
       WantedBy=timers.target
 
-- name: Force systemd to reread configs (Bypass module caching)
+- name: Reload systemd configuration directly
   ansible.builtin.command: systemctl daemon-reload
   changed_when: true
-  
-- name: Enable and start the SnapRAID sync timer
-  ansible.builtin.systemd_service:
-    name: snapraid-sync.timer
-    state: started
-    enabled: true
-    daemon_reload: true
 
-- name: Enable and start the SnapRAID scrub timer
-  ansible.builtin.systemd_service:
-    name: snapraid-scrub.timer
-    state: started
-    enabled: true
-    daemon_reload: true
+- name: Enable and start SnapRAID sync timer directly
+  ansible.builtin.command: systemctl enable --now snapraid-sync.timer
+  register: sync_timer_status
+  changed_when: "'Created symlink' in sync_timer_status.stderr or 'Created symlink' in sync_timer_status.stdout"
+
+- name: Enable and start SnapRAID scrub timer directly
+  ansible.builtin.command: systemctl enable --now snapraid-scrub.timer
+  register: scrub_timer_status
+  changed_when: "'Created symlink' in scrub_timer_status.stderr or 'Created symlink' in scrub_timer_status.stdout"
 
 
 - name: Configure logrotate for SnapRAID logs
