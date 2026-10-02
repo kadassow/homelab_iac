@@ -27,6 +27,7 @@
   ansible.builtin.command: pdbedit -L
   register: samba_user_list
   changed_when: false
+  check_mode: false
 
 - name: Set Samba passwords for new users only
   ansible.builtin.shell: |
@@ -50,30 +51,17 @@
     name: acl
     state: present
 
-
-- name: Ensure target shared folders exist
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: directory
-    mode: '0775'
-    owner: root
-    group: root
-  loop: "{{ acl_definitions }}"
-  loop_control:
-    label: "{{ item.path }}"
-
 - name: Debug acl_definitions contents
   ansible.builtin.debug:
     var: acl_definitions
 
-
-- name: Apply default (inherited) ACLs on shared category folders via shell
+- name: Apply access + default ACLs
   ansible.builtin.command: >
-    setfacl -d -m g:{{ item.group }}:{{ item.perms }} {{ item.path }}
+      setfacl -m g:{{ item.group }}:{{ item.perms }},d:g:{{ item.group }}:{{ item.perms }} {{ item.path }}
   loop: "{{ acl_definitions }}"
   loop_control:
     label: "{{ item.path }} -> {{ item.group }}"
-  changed_when: false  # Prevents task from showing as 'changed' every run
+  changed_when: false
 
 - name: Ensure smbd is enabled and running
   ansible.builtin.service:
