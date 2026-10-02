@@ -43,6 +43,23 @@
     mode: '0644'
   notify: Restart samba
 
+- name: Ensure acl package is installed
+  ansible.builtin.package:
+    name: acl
+    state: present
+
+
+- name: Ensure target shared folders exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: '0775'
+    owner: root
+    group: root
+  loop: "{{ acl_definitions }}"
+  loop_control:
+    label: "{{ item.path }}"
+
 - name: Apply default (inherited) ACLs on shared category folders
   ansible.posix.acl:
     path: "{{ item.path }}"
