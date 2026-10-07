@@ -57,5 +57,5 @@
     src: "{{ mergerfs_branches | join(':') }}"
     fstype: fuse.mergerfs
     # added acl to the end of the options string so samba can set acls
-    opts: "defaults,nonempty,allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create={{ mergerfs_create_policy }},moveonenospc=true,acl"
+    opts: "defaults,nonempty,allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create={{ mergerfs_create_policy }},moveonenospc=true"
     state: mounted
