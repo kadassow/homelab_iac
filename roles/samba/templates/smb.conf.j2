@@ -10,41 +10,28 @@
    smb ports = 445
    hosts allow = 192.168.69.0/23
 
-[media]
-   path = {{ mergerfs_mount }}/media
-   valid users = @rw_media, @ro_media, @admin
-   read list = @ro_media
-   write list = @rw_media
-   create mask = 0660
-   directory mask = 0770
-   # read-only enforcement happens per-connecting-user via valid users'
-   # Linux group ACLs set by roles/samba/tasks/main.yml, not here — a
-   # ro_media-only account still has this share "writable" at the Samba
-   # share level, but the underlying POSIX ACL (r-x for ro_media) blocks
-   # the actual write at the filesystem layer.
-   read only = no
-
-[stash]
-   path = {{ mergerfs_mount }}/stash
-   valid users = @rw_stash, @admin
-   force group = rw_stash
+# ONE share exporting the whole pool. Both Docker hosts mount this as
+# DATA_DIR (/mnt/data) so downloads/ and media/ (and downloads/privatestuff
+# and stash/) sit under a single mount and can be hardlinked.
+#
+# There is deliberately no force group and no read/write list here: who can
+# read or write each top-level folder is decided by the POSIX ACLs that
+# roles/samba/tasks/main.yml applies from acl_definitions (folders are 0770,
+# so anyone without an ACL entry gets nothing).
+[data]
+   path = {{ mergerfs_mount }}
+   valid users = @rw_media, @ro_media, @rw_stash, @rw_books, @admin
+   inherit acls = yes
    create mask = 0660
    directory mask = 0770
    read only = no
 
-[books]
-   path = {{ mergerfs_mount }}/books
-   valid users = @rw_books, @admin
-   read list = @ro_media
-   write list = @rw_media
-   create mask = 0660
-   directory mask = 0770
-   read only = no
-
+# Separate share for DOCKERCONFIGS_DIR (small app configs/metadata/cache).
 [dockerconfigs]
    path = {{ mergerfs_mount }}/dockerconfigs
    valid users = @rw_dockerconfigs, @admin
    force group = rw_dockerconfigs
+   inherit acls = yes
    create mask = 0660
    directory mask = 0770
    read only = no

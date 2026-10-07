@@ -1,6 +1,6 @@
 ---
 # Prerequisite: the parity drive must already be partitioned and formatted
-# (ext4) manually — see docs/STORAGE_VM_SETUP_addendum.md.
+# (ext4) manually — see docs/STORAGE_VM_SETUP.md.
 
 - name: Install SnapRAID
   ansible.builtin.apt:
@@ -56,7 +56,6 @@
       [Install]
       WantedBy=timers.target
 
-
 - name: Create SnapRAID scrub systemd service unit
   ansible.builtin.copy:
     dest: /etc/systemd/system/snapraid-scrub.service
@@ -85,24 +84,18 @@
       [Install]
       WantedBy=timers.target
 
-- name: Reload systemd configuration directly
-  ansible.builtin.systemd: daemon_reload: true
-  changed_when: true
+- name: Reload systemd configuration
+  ansible.builtin.systemd:
+    daemon_reload: true
 
-- name: Enable and start SnapRAID sync timer directly
-  ansible.builtin.command: systemctl enable --now snapraid-sync.timer
-  register: sync_timer_status
-  enabled: true
-  state: started
-  changed_when: "'Created symlink' in sync_timer_status.stderr or 'Created symlink' in sync_timer_status.stdout"
-
-- name: Enable and start SnapRAID scrub timer directly
-  ansible.builtin.command: systemctl enable --now snapraid-scrub.timer
-  register: scrub_timer_status
-  enabled: true
-  state: started
-  changed_when: "'Created symlink' in scrub_timer_status.stderr or 'Created symlink' in scrub_timer_status.stdout"
-
+- name: Enable and start SnapRAID timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - snapraid-sync.timer
+    - snapraid-scrub.timer
 
 - name: Configure logrotate for SnapRAID logs
   ansible.builtin.copy:
@@ -124,4 +117,3 @@
               systemctl reload systemd-journald >/dev/null 2>&1 || true
           endscript
       }
-

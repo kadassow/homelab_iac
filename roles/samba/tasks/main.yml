@@ -1,82 +1,97 @@
 ---
-- name: Ensure Samba server packages are installed
-  ansible.builtin.package:
-    name:
-      - samba
-      - samba-common-bin
+# Prerequisite: each drive listed in mergerfs_branch_uuids must already be
+# partitioned and formatted (ext4) manually — see docs/STORAGE_VM_SETUP.md.
+# This role only mounts and pools already-formatted filesystems; it never
+# formats anything.
+
+- name: Install mergerfs
+  ansible.builtin.apt:
+    name: mergerfs
     state: present
+    update_cache: yes
 
-- name: Create role-based Linux groups
-  ansible.builtin.group:
-    name: "{{ item }}"
-    state: present
-  loop: "{{ samba_groups }}"
+- name: Ensure branch mount point directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ mergerfs_branches }}"
 
-- name: Create Samba system accounts
-  ansible.builtin.user:
-    name: "{{ item.name }}"
-    groups: "{{ item.groups }}"
-    append: true
-    shell: /usr/sbin/nologin
-    system: true
-  loop: "{{ samba_users }}"
-  loop_control:
-    label: "{{ item.name }}"
-
-- name: List existing Samba users (idempotency guard)
-  ansible.builtin.command: pdbedit -L
-  register: samba_user_list
+- name: Check which branch mount points are currently mounted
+  ansible.builtin.command: mountpoint -q {{ item }}
+  register: branch_mountpoint
+  failed_when: false
   changed_when: false
   check_mode: false
+  loop: "{{ mergerfs_branches }}"
 
-- name: Set Samba passwords for new users only
-  ansible.builtin.shell: |
-    printf '%s\n%s\n' "{{ lookup('vars', 'vault_smb_pw_' + item.name) }}" "{{ lookup('vars', 'vault_smb_pw_' + item.name) }}" | smbpasswd -s -a {{ item.name }}
-  loop: "{{ samba_users }}"
+- name: Make UNMOUNTED branch mount points immutable
+  # If a USB drive is missing at boot, writes would otherwise land in the empty
+  # mount-point directory on the OS disk and mergerfs would happily pool them.
+  # NEVER set +i on a mounted drive — it would apply to the drive's own root.
+  # Mounting a drive over an immutable directory works fine.
+  ansible.builtin.file:
+    path: "{{ item.item }}"
+    attributes: '+i'
+  loop: "{{ branch_mountpoint.results }}"
   loop_control:
-    label: "{{ item.name }}"
-  when: item.name not in samba_user_list.stdout
-  no_log: true
+    label: "{{ item.item }}"
+  when: item.rc != 0
 
-- name: Render smb.conf
-  ansible.builtin.template:
-    src: smb.conf.j2
-    dest: /etc/samba/smb.conf
-    mode: '0644'
-  notify: Restart samba
-
-
-- name: Ensure acl package is installed
-  ansible.builtin.package:
-    name: acl
-    state: present
-
-- name: Debug acl_definitions contents
-  ansible.builtin.debug:
-    var: acl_definitions
-
-- name: Apply access + default ACLs
-  ansible.builtin.command: >
-      setfacl -m g:{{ item.group }}:{{ item.perms }},d:g:{{ item.group }}:{{ item.perms }} {{ item.path }}
-  loop: "{{ acl_definitions }}"
+- name: Mount each pre-formatted physical disk at its branch path (by UUID)
+  # Safe to automate — this mounts an already-formatted filesystem, it does
+  # not create one. Formatting itself stays manual.
+  ansible.posix.mount:
+    path: "{{ item.branch }}"
+    src: "UUID={{ item.uuid }}"
+    fstype: ext4
+    opts: defaults,nofail,acl # MUST have acl here too so samba can set acls
+    state: mounted
+  loop: "{{ mergerfs_branch_uuids }}"
   loop_control:
-    label: "{{ item.path }} -> {{ item.group }}"
-  changed_when: false
+    label: "{{ item.branch }}"
 
-- name: Ensure smbd is enabled and running
-  ansible.builtin.service:
-    name: smbd
-    state: started
-    enabled: true
+- name: Ensure merged pool mount point exists
+  ansible.builtin.file:
+    path: "{{ mergerfs_mount }}"
+    state: directory
+    mode: '0755'
 
-# - name: Apply default (inherited) ACLs on shared category folders
-#   ansible.posix.acl:
-#     path: "{{ item.path }}"
-#     entity: "{{ item.group }}"
-#     etype: group
-#     permissions: "{{ item.perms }}"
-#     default: yes
-#     state: present
-#   loop: "{{ acl_definitions }}"
-#   loop_control:
-#     label: "{{ item.path }} -> {{ item.group }}"
+- name: Pre-create category folders on their dedicated branch only
+  # mergerfs has no "dedicate drive X to category Y" setting itself — this
+  # pre-creation step, combined with category.create=epmfs in the mount
+  # options below, is what actually enforces per-drive dedication. Do this
+  # AFTER each branch is mounted but BEFORE the pool is ever mounted.
+  #
+  # mode 0770 (not 0755) on purpose: with ONE shared [data] Samba share, the
+  # POSIX permissions are the only thing keeping e.g. vm2-services out of
+  # stash/. 0755 would let every authenticated account read every folder.
+  # Sub-folders (movies, otherstuff, ...) are created later by the samba role,
+  # AFTER the ACLs exist, so they inherit the default ACLs.
+  ansible.builtin.file:
+    path: "{{ item.branch }}/{{ item.folder }}"
+    state: directory
+    owner: "{{ PUID }}"
+    group: "{{ PGID }}"
+    mode: '0770'
+  loop: "{{ mergerfs_category_layout }}"
+  loop_control:
+    label: "{{ item.branch }}/{{ item.folder }}"
+
+- name: Mount mergerfs pool (persisted to /etc/fstab)
+  vars:
+    # systemd can't see the colon-separated branch list as dependencies, so
+    # spell them out — otherwise the pool can mount before its branches at boot.
+    branch_deps: "{{ mergerfs_branches | map('regex_replace', '^', 'x-systemd.requires-mounts-for=') | join(',') }}"
+  ansible.posix.mount:
+    path: "{{ mergerfs_mount }}"
+    src: "{{ mergerfs_branches | join(':') }}"
+    fstype: fuse.mergerfs
+    # NOTE: if ACLs don't stick on the pool after a real run, swap the plain
+    # `acl` option below for `posix_acl=true`.
+    opts: "defaults,nonempty,allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create={{ mergerfs_create_policy }},moveonenospc=true,acl,{{ branch_deps }}"
+    state: mounted
+  # state: mounted rewrites /etc/fstab but does NOT apply changed options to an
+  # already-mounted pool. After the first run with this change:
+  #   systemctl stop smbd && umount /srv/pool && mount /srv/pool
+  # (or just reboot the VM).

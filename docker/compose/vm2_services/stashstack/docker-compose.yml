@@ -40,8 +40,8 @@ services:
       ## Keep configs, scrapers, and plugins here.
       - $LOCALDOCKER_DIR/stashpro:/root/.stash
       ## Point this at your collection.
-      - $DATA_DIR/otherstuff:/data
-      - $DATA_DIR/VR:/VR
+      - $DATA_DIR/stash/otherstuff:/data
+      - $DATA_DIR/stash/VR:/VR
       ## This is where your stash's metadata lives
       - $DOCKERCONFIGS_DIR/stashpro/metadata:/metadata
       ## Any other cache content.
@@ -87,7 +87,7 @@ services:
       ## Keep configs, scrapers, and plugins here.
       - $LOCALDOCKER_DIR/stashpersonal:/root/.stash
       ## Point this at your collection.
-      - $DATA_DIR:/data
+      - $DATA_DIR/stash/mystuff:/data/privatestuff/mystuff
       ## This is where your stash's metadata lives
       - $DOCKERCONFIGS_DIR/stashpersonal/metadata:/metadata
       ## Any other cache content.
@@ -195,7 +195,7 @@ services:
       ## Keep configs, scrapers, and plugins here.
       - $LOCALDOCKER_DIR/stashreel:/root/.stash
       ## Point this at your collection.
-      - $DATA_DIR/reels:/data
+      - $DATA_DIR/stash/reels:/data
       ## This is where your stash's metadata lives
       - $DOCKERCONFIGS_DIR/stashreel/metadata:/metadata
       ## Any other cache content.
@@ -224,7 +224,7 @@ services:
         - PGID=$PGID
         - TZ=$TZ
     volumes:
-      - /$DATA_DIR/syncthing:/data
+      - /$DATA_DIR/downloads/stash/syncthing:/data
     ports:
       - 9384:8384 # Web UI
       - 22000:22000/tcp # TCP file transfers

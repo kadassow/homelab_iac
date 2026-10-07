@@ -298,53 +298,6 @@
     #    args:
     #     {chdir: "{{ stack_dir }}"}
 
-
-- name: Deploy stashstack to vm-internal
-  hosts: docker_internal
-  vars:
-    stack_dir: /opt/stacks/stashstack
-  tasks:
-    - name: Create local subdirectories stashstack needs before first start
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        owner: "{{ PUID }}"
-        group: "{{ PGID }}"
-        mode: '0755'
-      loop:
-        - "{{ LOCALDOCKER_DIR }}/stashpro"
-        - "{{ LOCALDOCKER_DIR }}/stashpersonal"
-        - "{{ LOCALDOCKER_DIR }}/stashreel"
-        - "{{ DOCKERCONFIGS_DIR }}/stashpro/metadata"
-        - "{{ DOCKERCONFIGS_DIR }}/stashpersonal/metadata"
-        - "{{ DOCKERCONFIGS_DIR }}/stashreel/metadata"
-        
-
-    - name: Ensure stack directory exists on the VM
-      ansible.builtin.file:
-        path: "{{ stack_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Copy stashstack compose file to the VM
-      ansible.builtin.copy:
-        src: docker/compose/vm2_services/stashstack/docker-compose.yml
-        dest: "{{ stack_dir }}/docker-compose.yml"
-        mode: '0644'
-
-    - name: Render stashstack .env file
-      ansible.builtin.template:
-        src: templates/stashstack.env.j2
-        dest: "{{ stack_dir }}/.env"
-        mode: '0600'
-      no_log: true
-
-    - name: Deploy stashstack
-      community.docker.docker_compose_v2:
-        project_src: "{{ stack_dir }}"
-        state: present
-
-
 - name: Deploy arrstack to vm3-internal
   hosts: docker_internal
   vars:
@@ -460,7 +413,7 @@
 
     - name: Copy monitoring compose file to the VM
       ansible.builtin.copy:
-        src: docker/compose/vm3_internal/monitoring/docker-compose.yml
+        src: docker/compose/vm3_internal/monitoringstack/docker-compose.yml
         dest: "{{ stack_dir }}/docker-compose.yml"
         mode: '0644'
 
@@ -738,7 +691,6 @@
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: directory
-        mode: '0755'
       loop: "{{ kopia_backup_paths }}"
       loop_control:
         label: "{{ item.path }}"
