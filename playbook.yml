@@ -37,7 +37,7 @@
     - name: Update grub
       ansible.builtin.command: update-grub
 - name: Install Docker Engine and Docker Compose Plugin (docker_hosts only)
-  hosts: docker_hosts
+  hosts: docker_hosts,storage
   gather_facts: true
   tasks:
     - name: Install packages needed to fetch/verify the Docker repo key
