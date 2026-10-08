@@ -747,8 +747,11 @@
       changed_when: true
 
     - name: Enable and start Kopia snapshot timers for each path
-      ansible.builtin.command: "systemctl enable --now kopia-snapshot@{{ item.path | systemd_escape }}.timer"
+      ansible.builtin.shell: |
+        ESCAPED_PATH=$(systemd-escape "{{ item.path }}")
+        systemctl enable --now "kopia-snapshot@${ESCAPED_PATH}.timer"
       loop: "{{ kopia_backup_paths }}"
       loop_control:
         label: "Timer: {{ item.path }}"
       changed_when: true
+
