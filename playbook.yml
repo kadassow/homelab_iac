@@ -678,7 +678,7 @@
           --password={{ kopia_client_password }}
           --server-cert-fingerprint={{ kopia_server_cert_fingerprint }}
       when: not kopia_connected.stat.exists
-      no_log: true
+    
 
     - name: Ensure each Kopia backup path exists before policy/snapshot setup
       # Non-destructive (mkdir -p equivalent) — safe to automate, unlike
