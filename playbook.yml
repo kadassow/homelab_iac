@@ -26,6 +26,11 @@
           - apt-transport-https
           - ca-certificates
         state: present
+
+        
+- name: Reduce grub boot menu timeout
+  hosts: virtualmachines
+  tasks:
     - name: Set GRUB boot menu timeout
       ansible.builtin.lineinfile:
         path: /etc/default/grub
@@ -35,7 +40,8 @@
       notify: Update grub
   handlers:
     - name: Update grub
-      ansible.builtin.command: update-grub
+      ansible.builtin.command: update-grub  
+
 - name: Install Docker Engine and Docker Compose Plugin (docker_hosts only)
   hosts: docker_hosts,storage
   gather_facts: true
@@ -678,7 +684,7 @@
           --password={{ kopia_client_password }}
           --server-cert-fingerprint={{ kopia_server_cert_fingerprint }}
       when: not kopia_connected.stat.exists
-    
+      no_log: true
 
     - name: Ensure each Kopia backup path exists before policy/snapshot setup
       # Non-destructive (mkdir -p equivalent) — safe to automate, unlike
