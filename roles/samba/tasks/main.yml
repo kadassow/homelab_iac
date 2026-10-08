@@ -89,7 +89,7 @@
     fstype: fuse.mergerfs
     # NOTE: if ACLs don't stick on the pool after a real run, swap the plain
     # `acl` option below for `posix_acl=true`.
-    opts: "defaults,nonempty,allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create={{ mergerfs_create_policy }},moveonenospc=true,{{ branch_deps }}"
+    opts: "defaults,nonempty,allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create={{ mergerfs_create_policy }},moveonenospc=true,posix_acl=true,{{ branch_deps }}"
     state: mounted
   # state: mounted rewrites /etc/fstab but does NOT apply changed options to an
   # already-mounted pool. After the first run with this change:
