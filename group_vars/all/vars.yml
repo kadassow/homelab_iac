@@ -98,12 +98,12 @@ mergerfs_category_layout:
   - { branch: /mnt/disk1, folder: media }                # Jellyfin movies+tv (arrstack writes via hardlink, same branch)
   - { branch: /mnt/disk1, folder: downloads/media }
   - { branch: /mnt/disk2, folder: stash }                 # Stash library (arrstack's Whisparr writes via hardlink, same branch)
-  - { branch: /mnt/disk2, folder: downloads/privatestuff }
+  - { branch: /mnt/disk2, folder: downloads/stash }
   - { branch: /mnt/disk3, folder: photos }                # not yet deployed (Immich) — folder reserved
   - { branch: /mnt/disk3, folder: books }                 # mediastack's Calibre-Web-Automated
   - { branch: /mnt/disk3, folder: dockerconfigs }         # DOCKERCONFIGS_DIR pool-side backing — every stack's own config/cache slice
   - { branch: /mnt/disk3, folder: emulation }             # not yet deployed — folder reserved
-  - { branch: /mnt/disk3, folder: downloads/otherstuff }  # mediastack's ebook ingest, misc downloads
+  - { branch: /mnt/disk3, folder: downloads/otherthings }  # mediastack's ebook ingest, misc downloads
 
 # Sub-folders created by the samba role AFTER the ACLs are applied, so they
 # inherit the default ACLs. Each one's parent exists on exactly one branch, so
@@ -116,16 +116,20 @@ pool_subfolders:
   - media/tv
   - media/music
   - media/youtube
-  - media/otherstuff/yt-dlp
+  - media/otherthings/yt-dlp
   - downloads/media/jdownloader
+  - downloads/media/torrents
   # disk2 — Stash
   - stash/otherstuff
   - stash/VR
   - stash/reels
   - stash/mystuff            # personal library — Kopia backs this up (host_vars/vm4-storage.yml)
   - stash/syncthing
+  - downloads/stash/jdownloader
+  - downloads/stash/torrents
   # disk3 — books
-  - downloads/otherstuff/ebookingest
+  - downloads/otherthings/ebookingest
+  - downloads/otherthings/torrents
 
 # ─── vm4-storage — SnapRAID parity ──────────────────────────────────────────
 snapraid_parity_disk: /mnt/parity   # DAS Drive 4 — dedicated parity, NOT a mergerfs branch
@@ -166,12 +170,12 @@ acl_definitions:
   - { path: "{{ mergerfs_mount }}/downloads/media",        group: admin,            perms: rwx }
   - { path: "{{ mergerfs_mount }}/stash",                  group: rw_stash,         perms: rwx }
   - { path: "{{ mergerfs_mount }}/stash",                  group: admin,            perms: rwx }
-  - { path: "{{ mergerfs_mount }}/downloads/stash", group: rw_stash,         perms: rwx }
-  - { path: "{{ mergerfs_mount }}/downloads/stash", group: admin,            perms: rwx }
+  - { path: "{{ mergerfs_mount }}/downloads/stash",        group: rw_stash,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/downloads/stash",        group: admin,            perms: rwx }
   - { path: "{{ mergerfs_mount }}/books",                  group: rw_books,         perms: rwx }
   - { path: "{{ mergerfs_mount }}/books",                  group: admin,            perms: rwx }
-  - { path: "{{ mergerfs_mount }}/downloads/otherstuff",   group: rw_books,         perms: rwx }
-  - { path: "{{ mergerfs_mount }}/downloads/otherstuff",   group: admin,            perms: rwx }
+  - { path: "{{ mergerfs_mount }}/downloads/otherthings",   group: rw_books,         perms: rwx }
+  - { path: "{{ mergerfs_mount }}/downloads/otherthings",   group: admin,            perms: rwx }
   - { path: "{{ mergerfs_mount }}/dockerconfigs",          group: rw_dockerconfigs, perms: rwx }
   - { path: "{{ mergerfs_mount }}/dockerconfigs",          group: admin,            perms: rwx }
   - { path: "{{ mergerfs_mount }}/photos",                 group: admin,            perms: rwx }
