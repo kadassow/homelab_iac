@@ -713,12 +713,42 @@
         label: "{{ item.path }}"
       changed_when: false
 
-    - name: Schedule nightly snapshot via cron for each backup path
-      ansible.builtin.cron:
-        name: "Kopia nightly snapshot - {{ item.path }}"
-        minute: "30"
-        hour: "2"
-        job: "/usr/bin/kopia snapshot create {{ item.path }} >> /var/log/kopia-snapshot.log 2>&1"
+    - name: Create Kopia snapshot systemd service template
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/kopia-snapshot@.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Kopia Snapshot Service for %I
+          After=local-fs.target
+
+          [Service]
+          Type=oneshot
+          # %I becomes the escaped systemd path name automatically
+          ExecStart=/bin/sh -c '/usr/bin/kopia snapshot create "%f" >> /var/log/kopia-snapshot.log 2>&1'
+
+    - name: Create Kopia snapshot systemd timer template (2:30 AM nightly)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/kopia-snapshot@.timer
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Run Kopia snapshot nightly at 2:30 AM for %I
+
+          [Timer]
+          OnCalendar=*-*-* 02:30:00
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+
+    - name: Reload systemd configuration directly
+      ansible.builtin.command: systemctl daemon-reload
+      changed_when: true
+
+    - name: Enable and start Kopia snapshot timers for each path
+      ansible.builtin.command: "systemctl enable --now kopia-snapshot@{{ item.path | systemd_escape }}.timer"
       loop: "{{ kopia_backup_paths }}"
       loop_control:
-        label: "{{ item.path }}"
+        label: "Timer: {{ item.path }}"
+      changed_when: true
