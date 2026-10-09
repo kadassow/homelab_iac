@@ -99,9 +99,9 @@ Replace the `dhcp` line for that interface with a static block:
 ```
 auto ens18
 iface ens18 inet static
-    address 192.168.69.240/24
-    gateway 192.168.69.1
-    dns-nameservers 1.1.1.1
+    address 192.168.69.240/23
+    gateway 192.168.68.1
+    dns-nameservers 192.168.69.106 192.168.69.6
 ```
 (Static IP matching `inventory.ini` exactly; DNS set to a public resolver
 for now — see the reasoning below on why not AdGuard yet.)
@@ -325,7 +325,7 @@ the VM — see B3 below for why this order matters:
 
 ```bash
 qm clone 9000 241 --name vm2-services --full
-qm set 241 --ipconfig0 ip=192.168.69.241/24,gw=192.168.69.1
+qm set 241 --ipconfig0 ip=192.168.69.241/23,gw=192.168.68.1
 qm set 241 --nameserver "192.168.69.106 192.168.69.6"
 qm set 241 --ciuser root
 qm set 241 --sshkeys /root/id_ed25519.pub
