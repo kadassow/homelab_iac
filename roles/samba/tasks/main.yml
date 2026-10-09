@@ -9,6 +9,11 @@
     name: mergerfs
     state: present
     update_cache: yes
+    
+- name: Ensure acl package is installed for filesystem permissions
+  ansible.builtin.package:
+    name: acl
+    state: present
 
 - name: Ensure branch mount point directories exist
   ansible.builtin.file:
