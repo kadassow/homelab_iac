@@ -153,7 +153,7 @@
         regexp: '^(Suites: (?!.*security).*\nComponents: main)[ \t]*$'
         replace: '\1 contrib non-free non-free-firmware'
       when: deb822_sources.stat.exists
-      
+
     - name: Install Intel VA-API / QuickSync packages
       ansible.builtin.apt:
         name:
@@ -339,6 +339,7 @@
         - "{{ LOCALDOCKER_DIR }}/prowlarr/config"
         - "{{ LOCALDOCKER_DIR }}/jellyseerr/config"
         - "{{ LOCALDOCKER_DIR }}/jdownloader"
+        - "{{ LOCALDOCKER_DIR }}/jdownloadermedia"
         - "{{ LOCALDOCKER_DIR }}/trailarr"
         - "{{ DOCKERCONFIGS_DIR }}/gluetun/config"
 

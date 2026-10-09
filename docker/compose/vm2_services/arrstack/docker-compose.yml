@@ -388,7 +388,7 @@ services:
       - JDOWNLOADER_HEADLESS=1
     volumes:
       - $LOCALDOCKER_DIR/jdownloader:/config
-      - $DATA_DIR/stash/downloads/jdownloader:/output
+      - $DATA_DIR/downloads/stash/jdownloader:/output
     restart: unless-stopped
     logging: *default-logging
     labels:
@@ -400,36 +400,34 @@ services:
       retries: 3
       start_period: 20s
 
-jdownloadermedia:
-  image: jlesage/jdownloader-2
-  container_name: jdownloadermedia
-  depends_on:
-    gluetun_open:
-      condition: service_healthy
-  network_mode: service:gluetun_open
-  # ports:
-  #   - 5800:5800
-  environment:     
-    - USER_ID=$PUID
-    - GROUP_ID=$PGID
-    - TZ=$TZ
-    - MYJDOWNLOADER_EMAIL=$JDOWNLOADEMAIL
-    - MYJDOWNLOADER_PASSWORD=$JDOWNLOADPASS
-    - MYJDOWNLOADER_DEVICE_NAME=arrserver
-    - JDOWNLOADER_HEADLESS=1
-  volumes:
-    - $LOCALDOCKER_DIR/jdownloader:/config
-    - $DATA_DIR/downloads/otherstuff/jdownloader:/output
-  restart: unless-stopped
-  logging: *default-logging
-  labels:
-  - autoheal=true
-  healthcheck:
-    test: wget -qO- --timeout=5 https://am.i.mullvad.net/connected || exit 1
-    interval: 30s
-    timeout: 10s
-    retries: 3
-    start_period: 20s
+  jdownloadermedia:
+    image: jlesage/jdownloader-2
+    container_name: jdownloadermedia
+    depends_on:
+      gluetun_open:
+        condition: service_healthy
+    network_mode: service:gluetun_open
+    environment:
+      - USER_ID=$PUID
+      - GROUP_ID=$PGID
+      - TZ=$TZ
+      - MYJDOWNLOADER_EMAIL=$JDOWNLOADEMAIL
+      - MYJDOWNLOADER_PASSWORD=$JDOWNLOADPASS
+      - MYJDOWNLOADER_DEVICE_NAME=arrserver
+      - JDOWNLOADER_HEADLESS=1
+    volumes:
+      - $LOCALDOCKER_DIR/jdownloadermedia:/config
+      - $DATA_DIR/downloads/media/jdownloader:/output
+    restart: unless-stopped
+    logging: *default-logging
+    labels:
+      - autoheal=true
+    healthcheck:
+      test: wget -qO- --timeout=5 https://am.i.mullvad.net/connected || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 
   trailarr:
