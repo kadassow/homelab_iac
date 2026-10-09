@@ -72,7 +72,7 @@
     state: directory
     owner: "{{ PUID }}"
     group: "{{ PGID }}"
-    mode: '0770'
+    mode: "{{ item.mode | default('0770') }}"
   loop: "{{ mergerfs_category_layout }}"
   loop_control:
     label: "{{ item.branch }}/{{ item.folder }}"
