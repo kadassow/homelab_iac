@@ -142,6 +142,18 @@
         replace: '\1 contrib non-free non-free-firmware'
       when: nonfree_check.rc != 0
 
+    - name: Check whether this host uses deb822-format apt sources
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list.d/debian.sources
+      register: deb822_sources
+
+    - name: Enable contrib/non-free/non-free-firmware on the main deb822 stanza only
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list.d/debian.sources
+        regexp: '^(Suites: (?!.*security).*\nComponents: main)[ \t]*$'
+        replace: '\1 contrib non-free non-free-firmware'
+      when: deb822_sources.stat.exists
+      
     - name: Install Intel VA-API / QuickSync packages
       ansible.builtin.apt:
         name:
