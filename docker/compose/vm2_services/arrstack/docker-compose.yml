@@ -78,7 +78,7 @@ services:
     volumes:
       - $LOCALDOCKER_DIR/qbittorrent/config:/config
       #- $DATA_DIR/downloads/torrents:/downloads
-      - $DATA_DIR/downloads/torrents:/$DATA_DIR/downloads/torrents
+      - $DATA_DIR/downloads/media:/data/downloads/media
     restart: unless-stopped # no | always | on-failure | unless-stopped
     logging: *default-logging
     labels:
@@ -203,7 +203,7 @@ services:
     volumes:
       - $LOCALDOCKER_DIR/qbittorrent_whisparr/config:/config
       #- $DATA_DIR/downloads/torrents:/downloads
-      - $DATA_DIR/downloads/stash/torrents:/data/downloads/privatestuff/torrents
+      - $DATA_DIR/downloads/stash/torrents:/data/downloads/stash/torrents
     restart: unless-stopped # no | always | on-failure | unless-stopped
     logging: *default-logging
     labels:
@@ -231,7 +231,7 @@ services:
       - UMASK=002
     volumes:
       - $LOCALDOCKER_DIR/whisparr/config:/config
-      - $DATA_DIR/stash:/data/privatestuff
+      - $DATA_DIR/stash:/data/stash
     restart: unless-stopped
     logging: *default-logging
     networks:
@@ -252,7 +252,7 @@ services:
       - UMASK=002
     volumes:
       - $LOCALDOCKER_DIR/whisparr3/config:/config
-      - $DATA_DIR/stash:/data/privatestuff
+      - $DATA_DIR/stash:/data/stash
     restart: unless-stopped
     logging: *default-logging
     networks:
@@ -329,8 +329,7 @@ services:
         condition: service_healthy
     network_mode: service:gluetun_open
     volumes:
-      - $DATA_DIR/media/youtube:/downloads # replace <your dir> with a directory on your host system
-      - $DATA_DIR/media/otherstuff/yt-dlp:/otherstuff
+      - $DATA_DIR/downloads/media/youtube:/downloads 
     restart: unless-stopped
     logging: *default-logging
     labels:
@@ -440,9 +439,9 @@ services:
     volumes:
       - $LOCALDOCKER_DIR/trailarr:/config # For Trailarr's database and logs
       # Map your Radarr media folder(s)
-      - $DATA_DIR/media/movies:/media/movies # Example: if Radarr uses /media/movies internally
+      - $DATA_DIR/media:/data/media/movies # Example: if Radarr uses /media/movies internally
       # Map your Sonarr media folder(s)
-      - $DATA_DIR/media/tv:/media/tv # Example: if Sonarr uses /media/tv internally
+      - $DATA_DIR/media/tv:/data/media/tv # Example: if Sonarr uses /media/tv internally
       # Add more volume mappings if you have multiple Radarr/Sonarr instances
       # or if your media is split across different locations.
       # The path on the right (e.g., /media/movies, /media/tv) is how Trailarr will see these folders.
